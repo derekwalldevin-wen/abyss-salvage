@@ -39,7 +39,12 @@ export class Settle {
     this.el.back?.addEventListener('click', () => this.hooks.onBack?.());
   }
 
-  hide() { if (this.el.root) this.el.root.hidden = true; }
+  hide() {
+    if (this.el.root) this.el.root.hidden = true;
+    // HUD 的淡出是靠 body.settling 驱动的（见 style.css 的注释：
+    // 用 in-raid 会写反）。所以显隐两处都要维护这个类。
+    document.body.classList.remove('settling');
+  }
 
   /**
    * @param {object} raid  已 end() 的对局（end 会把 secs/items/guns 归一化好）
@@ -96,6 +101,7 @@ export class Settle {
     ].map(([k, v]) => `<span><i>${k}</i><b>${v}</b></span>`).join('');
 
     e.root.hidden = false;
+    document.body.classList.add('settling');
   }
 
   renderHaul(raid, res) {

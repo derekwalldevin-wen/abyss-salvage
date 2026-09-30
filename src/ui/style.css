@@ -164,6 +164,15 @@ body.in-raid #hud { display: block; }
   .ld-brand { font-size: 32px; letter-spacing: 4px; }
 }
 
+/* `[hidden]` 在浏览器默认样式里只是 `display: none`，特异性极低。
+   任何作者写的 `display: flex/block/grid` 都会**压过**它 ——
+   于是 `el.hidden = true` 看着生效了，元素却还在屏幕上。
+   踩过：#settle { display: flex } 让撤离结算面板一进游戏就盖住整个画面，
+   显示一堆 0，玩家根本进不去游戏。`el.hidden = true` 还返回 true，
+   查 DOM 会说「隐藏了」，肉眼看却是显示的，最难查。
+   这条兜底规则让 hidden 属性在任何 display 下都真的生效。 */
+[hidden] { display: none !important; }
+
 /* ---------------- 撤离结算 ---------------- */
 #settle {
   position: fixed; inset: 0; z-index: 40;
@@ -265,5 +274,97 @@ body.in-raid #hud { display: block; }
 .se-btn.ghost { background: transparent; color: var(--muted); border-color: var(--line); }
 .se-btn.ghost:hover { color: var(--text); border-color: var(--muted); }
 
-/* 结算时把结算层压在 HUD 上面，但 HUD 要淡出 —— 两层叠在一起会看不清 */
-body.in-raid #hud { opacity: 0; transition: opacity .2s; }
+/* 结算时把 HUD 淡出，否则两层信息叠在一起看不清。
+   注意用 body.settling 而不是 body.in-raid：
+   onRaidEnd 是**先**移除 in-raid **再**显示结算面板，所以用 in-raid 会正好写反 ——
+   对局中 HUD 全透明（看不见血量氧气），结算时 HUD 反而是亮的。踩过。 */
+body.settling #hud { opacity: 0; pointer-events: none; transition: opacity .18s; }
+
+/* ---------------- 营地 ---------------- */
+#camp {
+  position: fixed; inset: 0; z-index: 30;
+  display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(ellipse at 50% 30%, rgba(6, 26, 33, .84), rgba(2, 8, 11, .96));
+  overflow: auto; padding: 18px 0;
+}
+.cp-card {
+  width: min(1080px, calc(100vw - 32px));
+  max-height: calc(100vh - 28px);
+  overflow-y: auto;                 /* 选项再多也不能把页面撑出视口 */
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 14px 18px 12px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .6);
+}
+.cp-top { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 11px; }
+.cp-brand { font-size: 19px; font-weight: 700; letter-spacing: 4px; color: var(--cyan); }
+.cp-brand i { font-style: normal; font-size: 10px; letter-spacing: 2px; color: var(--muted); margin-left: 9px; }
+.cp-money { display: flex; align-items: baseline; gap: 7px; font-size: 11px; color: var(--muted); }
+.cp-money b { font-size: 21px; color: var(--gold); }
+.cp-aid { color: var(--muted); font-size: 10px; border-bottom: 1px dotted currentColor; }
+
+.cp-cols { display: grid; grid-template-columns: 1.15fr 1fr 1fr; gap: 16px; }
+.cp-lower { margin-top: 13px; padding-top: 11px; border-top: 1px solid var(--line); }
+.cp-sect {
+  font-size: 10px; color: var(--muted); letter-spacing: 2px;
+  margin: 0 0 5px; padding-bottom: 3px; border-bottom: 1px solid var(--line);
+}
+.cp-col .cp-sect:not(:first-child) { margin-top: 9px; }
+
+.cp-list { display: flex; flex-direction: column; gap: 2px; }
+/* 一行放下：名称 · 副信息 · 价格。原来是两行，16 个选项直接撑出视口。 */
+.cp-opt {
+  display: grid; grid-template-columns: auto 1fr auto;
+  align-items: baseline; gap: 7px;
+  padding: 4px 8px; cursor: pointer; text-align: left;
+  font: inherit; color: var(--text);
+  background: rgba(255, 255, 255, .028);
+  border: 1px solid transparent; border-left: 2px solid transparent; border-radius: 2px;
+  transition: background .1s, border-color .1s;
+}
+.cp-opt:hover { background: rgba(255, 255, 255, .07); }
+.cp-opt.on { border-left-color: var(--cyan); background: rgba(92, 255, 200, .10); }
+.cp-opt.poor { opacity: .42; }
+.cp-n { font-size: 12px; white-space: nowrap; }
+.cp-s { font-size: 10px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cp-p { font-size: 11px; color: var(--gold); }
+.cp-opt.poor .cp-p { color: var(--red); }
+.cp-row { display: flex; gap: 4px; }
+.cp-mini {
+  flex: 1; padding: 5px 0; cursor: pointer; font: inherit; font-size: 12px;
+  color: var(--muted); background: rgba(255, 255, 255, .028);
+  border: 1px solid transparent; border-radius: 2px;
+}
+.cp-mini.on { color: #06181d; background: var(--cyan); font-weight: 700; }
+
+.cp-info, .cp-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px 14px; font-size: 11px; }
+.cp-info div, .cp-stats div { display: flex; justify-content: space-between; gap: 6px; }
+.cp-info span, .cp-stats span { color: var(--muted); }
+.cp-info b, .cp-stats b { font-family: var(--mono); font-weight: 400; }
+.cp-gearline { grid-column: 1 / -1; margin-top: 4px; color: var(--muted); font-size: 10.5px; }
+.cp-bar { display: inline-block; width: 40px; height: 4px; background: rgba(255, 255, 255, .1); border-radius: 2px; overflow: hidden; }
+.cp-bar b { display: block; height: 100%; background: var(--gold); }
+.cp-stash { display: flex; flex-wrap: wrap; gap: 3px; font-size: 11px; min-height: 18px; align-content: flex-start; }
+.cp-stash.empty { color: var(--muted); }
+.cp-stash span { padding: 1px 6px; border-left: 2px solid var(--rc, var(--line)); background: rgba(255, 255, 255, .03); }
+.cp-stash .more { border-left-color: var(--line); color: var(--muted); }
+
+.cp-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line);
+}
+.cp-cost { display: flex; align-items: baseline; gap: 8px; font-size: 11px; color: var(--muted); }
+.cp-cost b { font-size: 18px; color: var(--text); }
+.cp-cost i { font-style: normal; color: var(--red); font-size: 11px; }
+.cp-go {
+  padding: 11px 46px; cursor: pointer; font: inherit;
+  font-size: 15px; letter-spacing: 5px;
+  color: #06181d; background: var(--cyan);
+  border: 1px solid var(--cyan); border-radius: 2px;
+  transition: filter .12s, transform .1s;
+}
+.cp-go:hover { filter: brightness(1.12); }
+.cp-go:active { transform: translateY(1px); }
+.cp-go i { font-style: normal; font-size: 10px; opacity: .55; border: 1px solid currentColor; border-radius: 2px; padding: 0 4px; margin-left: 4px; letter-spacing: 0; }
+.cp-go.broke, .cp-go:disabled { background: transparent; color: #5d7a80; border-color: var(--line); cursor: not-allowed; }

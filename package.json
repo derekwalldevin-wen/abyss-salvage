@@ -14,7 +14,8 @@
     "check:bright": "npm run build && node tools/diag-bright.mjs",
     "check:dist": "npm run build && node tools/smoke-dist.mjs",
     "check:settle": "npm run build && node tools/test-settle.mjs",
-    "verify": "npm test && npm run validate:map -- --seeds 80 && npm run check:assets && npm run check:render && npm run check:dist && npm run check:settle",
+    "check:play": "npm run build && node tools/test-play.mjs",
+    "verify": "npm test && npm run validate:map -- --seeds 80 && npm run check:assets && npm run check:render && npm run check:dist && npm run check:settle && npm run check:play",
     "sim": "node tools/sim.mjs",
     "balance": "node tools/balance.mjs",
     "test": "node --test tests/*.test.mjs"

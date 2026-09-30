@@ -70,6 +70,65 @@
       <canvas id="minimap" width="220" height="220"></canvas>
     </div>
 
+    <!-- 营地：配装 + 出击。旧版没有这个界面，deploy() 只能从测试控制台调用，
+         也就是「游戏加载完什么都点不了」。 -->
+    <div id="camp" hidden>
+      <div class="cp-card">
+        <div class="cp-top">
+          <div class="cp-brand">深渊打捞<i>ABYSS SALVAGE</i></div>
+          <div class="cp-money">
+            <span>余额</span><b class="mono" id="cpMoney">0</b>
+            <span class="cp-aid" id="cpAid" hidden>含过线补足</span>
+          </div>
+        </div>
+
+        <div class="cp-cols">
+          <div class="cp-col">
+            <div class="cp-sect">武器</div>
+            <div class="cp-list" id="cpGuns"></div>
+          </div>
+          <div class="cp-col">
+            <div class="cp-sect">潜水服</div>
+            <div class="cp-list" id="cpSuits"></div>
+            <div class="cp-sect">头盔</div>
+            <div class="cp-list" id="cpHelms"></div>
+          </div>
+          <div class="cp-col">
+            <div class="cp-sect">背负</div>
+            <div class="cp-list" id="cpPacks"></div>
+            <div class="cp-sect">难度</div>
+            <div class="cp-list" id="cpDiff"></div>
+            <div class="cp-sect">急救包</div>
+            <div class="cp-row" id="cpMeds"></div>
+          </div>
+        </div>
+
+        <div class="cp-cols cp-lower">
+          <div class="cp-col">
+            <div class="cp-sect">本局预览</div>
+            <div class="cp-info" id="cpInfo"></div>
+          </div>
+          <div class="cp-col">
+            <div class="cp-sect">仓库</div>
+            <div class="cp-stash" id="cpStash">空</div>
+          </div>
+          <div class="cp-col">
+            <div class="cp-sect">生涯</div>
+            <div class="cp-stats" id="cpStats"></div>
+          </div>
+        </div>
+
+        <div class="cp-foot">
+          <div class="cp-cost">
+            <span>装备投入</span>
+            <b class="mono" id="cpCost">0</b>
+            <i id="cpWarn" hidden>余额不足</i>
+          </div>
+          <button class="cp-go" id="cpGo">下潜 <i>↵</i></button>
+        </div>
+      </div>
+    </div>
+
     <!-- 撤离结算 -->
     <div id="settle" hidden>
       <div class="se-card">

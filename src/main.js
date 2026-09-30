@@ -1,4 +1,4 @@
-﻿// 入口：加载资源 → 建场景 → 部署 → 主循环。中文 UI 在 ui/hud.js。
+// 入口：加载资源 → 建场景 → 部署 → 主循环。中文 UI 在 ui/hud.js。
 import * as THREE from 'three';
 import { loadAssets } from './render/materials.js';
 import {
@@ -15,6 +15,7 @@ import { Raid } from './core/raid.js';
 import { newProfile } from './core/rules.js';
 import { Hud } from './ui/hud.js';
 import { Settle } from './ui/settle.js';
+import { Camp } from './ui/camp.js';
 import { RARITY_COLOR } from './core/catalog.js';
 
 const $ = (s) => document.querySelector(s);
@@ -97,8 +98,12 @@ const hud = new Hud();
 // 结算面板的「再来一局」要能重建一整局。
 const settle = new Settle({
   onAgain: () => restartRaid(),
-  onBack: () => { settle.hide(); lobby(); },
+  onBack: () => { settle.hide(); camp.show(lastLoadout); },
 });
+// 营地是**入口**。没有它 deploy() 只能从控制台调，游戏加载完是个点不了的空屏
+// —— 这正是上一版的情况：所有自动化检查都绿，因为它们都用控制台进场。
+const camp = new Camp(profile, (lo) => { lastLoadout = lo; deploy(lo); });
+let lastLoadout = null;
 const enemyDivers = new Map();
 let ready = false;
 
@@ -136,6 +141,9 @@ async function boot() {
   setTxt('就绪');
   const ld = $('#loading');
   if (ld) ld.style.display = 'none';
+  // 加载完直接进营地，玩家从这里出发。少了这一步就是「黑屏 + 无从下手」——
+  // 上一版没有营地界面，deploy() 只能从控制台调，所有自动检查都绿，人却进不去。
+  camp.show();
   ready = true;
 
   // 调试钩子（无副作用，只读）
@@ -191,18 +199,13 @@ function abortRaid() {
   raid.end('abandon');
 }
 
-/** 结算面板的「返回营地」。营地/商店界面还没做，先给个诚实的占位而不是空白页。 */
+/** 结算面板的「返回营地」：回到配装界面。 */
 function lobby() {
   settle.hide();
-  const ld = $('#loading');
-  if (ld) ld.style.display = 'flex';
-  const t = $('#ldtxt');
-  if (t) t.textContent = '返回营地 — 装备 / 商店界面待实现';
-  const tip = $('#ldtip');
-  if (tip) tip.textContent = '按 H 可直接再来一局';
+  camp.show(lastLoadout);
 }
 
-/** 再来一局：清掉上一局残留再部署。漏掉清理的话上一局的潜水员模型会留在场上。 */
+/** 再来一局：用上局配装直接重开，不回营地（省一次点击）。 */
 function restartRaid() {
   settle.hide();
   const ld = $('#loading');
@@ -211,7 +214,7 @@ function restartRaid() {
   for (const d of enemyDivers.values()) scene.remove(d.root);
   enemyDivers.clear();
   document.body.classList.remove('in-raid');
-  deploy();
+  deploy(lastLoadout || undefined);
 }
 
 // ---------- 主循环 ----------
@@ -259,10 +262,21 @@ function loop(now) {
   }
   if (window.__onFrame) window.__onFrame(dt);
 
-  // 结算面板的快捷键。放在这里而不是 keydown 里，是为了让 H 和 Escape
-  // 只在面板可见时生效 —— 对局中 H 是急救包，不能被结算面板抢走。
+  // 界面快捷键。放在这里而不是 keydown 里，是为了让同一个物理按键
+  // 在不同界面有不同含义：营地回车 = 下潜，结算面板 H = 再来一局
+  // （对局中 H 是急救包，不能被结算面板抢走）。
+  if (input.pressed.Enter || input.pressed.NumpadEnter) {
+    if (camp.hotkey(input.pressed)) input.pressed = {};
+  }
   if (input.pressed.KeyH || input.pressed.Escape) {
     if (settle.hotkey(input.pressed)) input.pressed = {};
+  }
+  // 对局中 Esc = 放弃。abortRaid 之前只是 export 出去没有任何调用方，
+  // README 里写着「Esc 放弃本局」，实际按了没反应。
+  // 只在「有对局且没结束」时拦，避免和结算面板的 Esc=返回营地打架。
+  if (input.pressed.Escape && raid && !raid.over) {
+    abortRaid();
+    input.pressed = {};
   }
 
   hud.tickFeed(dt);
