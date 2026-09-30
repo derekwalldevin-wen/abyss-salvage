@@ -14,6 +14,7 @@ import { buildWorld } from './world/build.js';
 import { Raid } from './core/raid.js';
 import { newProfile } from './core/rules.js';
 import { Hud } from './ui/hud.js';
+import { Settle } from './ui/settle.js';
 import { RARITY_COLOR } from './core/catalog.js';
 
 const $ = (s) => document.querySelector(s);
@@ -93,6 +94,11 @@ function updateAim() {
 let world = null, world3d = null, water = null, fx = null, raid = null;
 let playerDiver = null;
 const hud = new Hud();
+// 结算面板的「再来一局」要能重建一整局。
+const settle = new Settle({
+  onAgain: () => restartRaid(),
+  onBack: () => { settle.hide(); lobby(); },
+});
 const enemyDivers = new Map();
 let ready = false;
 
@@ -185,6 +191,29 @@ function abortRaid() {
   raid.end('abandon');
 }
 
+/** 结算面板的「返回营地」。营地/商店界面还没做，先给个诚实的占位而不是空白页。 */
+function lobby() {
+  settle.hide();
+  const ld = $('#loading');
+  if (ld) ld.style.display = 'flex';
+  const t = $('#ldtxt');
+  if (t) t.textContent = '返回营地 — 装备 / 商店界面待实现';
+  const tip = $('#ldtip');
+  if (tip) tip.textContent = '按 H 可直接再来一局';
+}
+
+/** 再来一局：清掉上一局残留再部署。漏掉清理的话上一局的潜水员模型会留在场上。 */
+function restartRaid() {
+  settle.hide();
+  const ld = $('#loading');
+  if (ld) ld.style.display = 'none';
+  raid = null;
+  for (const d of enemyDivers.values()) scene.remove(d.root);
+  enemyDivers.clear();
+  document.body.classList.remove('in-raid');
+  deploy();
+}
+
 // ---------- 主循环 ----------
 const clock = new THREE.Clock();
 let rafEMA = 16.7, frameNo = 0;
@@ -208,10 +237,15 @@ function loop(now) {
     updateAim();
     raid.aiming = input.ads;
     raid.update(dt, input);
-    consumeRaidEvents();
     updatePlayerVisual(dt);
     updateEnemyVisuals(dt);
   }
+  // 事件消费必须在 `!raid.over` 守卫**外面**。
+  // 对局在 raid.update() 里结束时，同一帧消费没问题；但如果从别处调用
+  // end()（放弃行动、测试里直接 end、未来的掉线处理），下一帧就会因为
+  // raid.over 而整段跳过，end 事件永远留在 events 里 ——
+  // 表现为「按了放弃，结算界面不弹，游戏卡在最后一帧」。
+  consumeRaidEvents();
 
   water.update(dt, camera.position);
   if (world3d) world3d.update(camera.position);
@@ -224,6 +258,12 @@ function loop(now) {
     updateCamera(camera, p, input.aim, dt, input.ads);
   }
   if (window.__onFrame) window.__onFrame(dt);
+
+  // 结算面板的快捷键。放在这里而不是 keydown 里，是为了让 H 和 Escape
+  // 只在面板可见时生效 —— 对局中 H 是急救包，不能被结算面板抢走。
+  if (input.pressed.KeyH || input.pressed.Escape) {
+    if (settle.hotkey(input.pressed)) input.pressed = {};
+  }
 
   hud.tickFeed(dt);
   if (raid && document.body.classList.contains('in-raid')) hud.update(raid, input);
@@ -264,6 +304,8 @@ function updateEnemyVisuals(dt) {
 
 // ---------- 事件消费：把逻辑层事件翻译成特效 ----------
 function consumeRaidEvents() {
+  // 现在每帧都会调（不再只在对局进行中调），所以 raid 为 null 时必须挡住
+  if (!raid) return;
   const ev = raid.events;
   for (let i = 0; i < ev.length; i++) {
     const e = ev[i];
@@ -291,10 +333,12 @@ function consumeRaidEvents() {
 }
 
 function onRaidEnd() {
+  // 先结算（写存档、算清账），再画面板 —— 面板要读的就是结算后的 profile
   const res = raid.finalize(profile);
   saveProfile(profile);
   document.body.classList.remove('in-raid');
   hud.show(false);
+  settle.show(raid, res, profile);
   if (window.__onRaidEnd) window.__onRaidEnd(raid, res, profile);
 }
 

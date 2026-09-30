@@ -339,7 +339,13 @@ export function settle(profile, raid, loadout) {
 
   // 深度系数：取本局最深抵达深度
   const scale = depthValueScale(raid.maxDepth || 0);
-  const value = extracted ? haulValue(raid.items, raid.guns, scale) + EXTRACT_BONUS : 0;
+  // 拆成 haul / bonus 两项再相加，而不是先算总值。
+  // 结算面板要把这笔钱逐项列给玩家看（战利品、深度加成、撤离奖金），
+  // 拆分必须发生在这里 —— 让 UI 拿返回值自己重算一遍，就等于把
+  // 经济公式抄了第二份，迟早会跟本体对不上。
+  const haul = extracted ? haulValue(raid.items, raid.guns, scale) : 0;
+  const bonus = extracted ? EXTRACT_BONUS : 0;
+  const value = haul + bonus;
   const refund = dead && loadout.insured !== false ? Math.round(cost * INSURANCE)
     : out === 'abandon' ? Math.round(cost * ABANDON_REFUND) : 0;
 
@@ -369,7 +375,9 @@ export function settle(profile, raid, loadout) {
     depth: Math.round(raid.maxDepth || 0), name: raid.extractedVia || '',
   });
   profile.history = profile.history.slice(0, 20);
-  return { value, refund, aid, scale, kills };
+  // breakdown 给结算面板逐项显示用（见上面 haul/bonus 拆分的注释）。
+  // 约定：haul + bonus === value，面板可以把它们当独立行渲染。
+  return { value, refund, aid, scale, kills, cost, haul, bonus, outcome: out, lost: !extracted ? haulValue(raid.items, raid.guns, scale) : 0 };
 }
 
 export function newProfile(name = '潜水员') {

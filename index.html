@@ -70,6 +70,45 @@
       <canvas id="minimap" width="220" height="220"></canvas>
     </div>
 
+    <!-- 撤离结算 -->
+    <div id="settle" hidden>
+      <div class="se-card">
+        <div class="se-head">
+          <div class="se-out" id="seOut">成功上浮</div>
+          <div class="se-via" id="seVia"></div>
+        </div>
+
+        <div class="se-stats">
+          <div class="se-st"><b id="seDepth">0</b><span>最深 m</span></div>
+          <div class="se-st"><b id="seKills">0</b><span>击杀</span></div>
+          <div class="se-st"><b id="seTime">0:00</b><span>历时</span></div>
+          <div class="se-st"><b id="seScale">×1.00</b><span>深度系数</span></div>
+        </div>
+
+        <div class="se-sec" id="seHaulSec">
+          <div class="se-sect">舱内物资</div>
+          <div class="se-haul" id="seHaul"></div>
+        </div>
+
+        <div class="se-sec">
+          <div class="se-sect">结算明细</div>
+          <div class="se-ledger" id="seLedger"></div>
+        </div>
+
+        <div class="se-total">
+          <div class="se-tr"><span>本局净收支</span><b id="seNet">0</b></div>
+          <div class="se-tr big"><span>余额</span><b id="seMoney">0</b></div>
+        </div>
+
+        <div class="se-career" id="seCareer"></div>
+
+        <div class="se-btns">
+          <button class="se-btn" id="seAgain">再来一局 <i>H</i></button>
+          <button class="se-btn ghost" id="seBack">返回营地</button>
+        </div>
+      </div>
+    </div>
+
     <div id="ui"></div>
     <script type="module" src="./src/main.js"></script>
   </body>

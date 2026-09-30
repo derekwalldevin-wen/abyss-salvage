@@ -467,3 +467,41 @@ test('skills: 无技能时修正量都是中性的', () => {
 });
 
 void mulberry32; void hashSeed; void clamp; void START_MONEY;
+
+// ---- 结算面板的账必须能对上 ----
+// 面板把 settle() 的每一项都列给玩家看，所以「haul + bonus === value」
+// 这个恒等式就是 UI 不会显示出自相矛盾数字的前提。改经济公式时如果
+// 漏改某一项，这里会立刻炸。
+test('econ: 结算明细 haul + bonus === value', () => {
+  const lo = { gun: 'reef', suit: 's2', helm: 'h1', pack: 'k2', meds: 2 };
+  for (const outcome of ['extracted', 'killed', 'mia', 'abandon']) {
+    const prof = newProfile();
+    const r = settle(prof, { outcome, secs: 120, items: ['bullion', 'gem'], guns: [], kills: 3, maxDepth: 35 }, lo);
+    assert.equal(r.haul + r.bonus, r.value, outcome + ': 明细加总应等于总值');
+    assert.equal(r.outcome, outcome);
+  }
+});
+
+test('econ: 只有撤离成功才有战利品收入与撤离奖金', () => {
+  const lo = { gun: 'reef', suit: 's2', helm: 'h1', pack: 'k2', meds: 2 };
+  for (const outcome of ['killed', 'mia', 'abandon']) {
+    const r = settle(newProfile(), { outcome, secs: 60, items: ['bullion'], guns: [], kills: 0, maxDepth: 10 }, lo);
+    assert.equal(r.haul, 0, outcome + ': 失败局不该有战利品收入');
+    assert.equal(r.bonus, 0, outcome + ': 失败局不该有撤离奖金');
+    // 但要告诉玩家「本来能拿到多少」—— 失败局的钱去哪了必须显示出来
+    assert.ok(r.lost > 0, outcome + ': 失败局应记录遗失物资价值');
+  }
+});
+
+test('econ: 失败局的遗失额 = 同样深度系数算出的货价', () => {
+  const lo = { gun: 'reef', suit: 's2', helm: 'h1', pack: 'k2', meds: 2 };
+  const raid = { outcome: 'killed', secs: 60, items: ['bullion', 'gem'], guns: [], kills: 0, maxDepth: 35 };
+  const r = settle(newProfile(), raid, lo);
+  assert.equal(r.lost, haulValue(raid.items, raid.guns, depthValueScale(35)));
+});
+
+test('econ: 明细里的 cost 就是这局的装备投入', () => {
+  const lo = { gun: 'reef', suit: 's2', helm: 'h1', pack: 'k2', meds: 2 };
+  const r = settle(newProfile(), { outcome: 'killed', secs: 10, items: [], guns: [], kills: 0, maxDepth: 0 }, lo);
+  assert.equal(r.cost, loadoutCost(lo));
+});

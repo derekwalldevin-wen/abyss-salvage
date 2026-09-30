@@ -1,4 +1,4 @@
-﻿# Abyss Salvage 进度
+# Abyss Salvage 进度
 
 ## 当前状态
 
@@ -105,5 +105,34 @@ three 只在 `new OrthographicCamera()` 时算一次投影矩阵，之后改属�
 ## 待办
 
 - [x] 部署到 CDN → https://derekwalldevin-wen.github.io/abyss-salvage/
-- [ ] 撤离结算界面：`onRaidEnd` 目前只回调，没画结算页
-- [ ] 装备/商店界面（`#ui` 容器是空的）
+- [x] 撤离结算界面（src/ui/settle.js）—— 四种结局 + 逐项明细 + 快捷键重开
+- [ ] 装备/商店界面（`#ui` 容器是空的，「返回营地」目前是占位提示）
+
+## 撤离结算界面
+
+`src/ui/settle.js`。除成功/阵亡外还处理放弃和失联。
+
+### 顺手修掉的一个真 bug：end 事件永远消费不到
+
+`consumeRaidEvents()` 原来在 `if (raid && !raid.over)` 里面。对局在
+`raid.update()` 里自然结束时，同帧消费没问题；但从别处调 `end()`
+（放弃行动、测试直接 end、以后的掉线处理），下一帧就因为 `raid.over`
+整段跳过，end 事件永远留在 `raid.events` 里 —— 表现为「按了放弃，
+结算界面不弹，游戏卡在最后一帧」。现在事件消费移到守卫外面。
+
+### 快捷键的一个低级错
+
+`hotkey(pressed)` 收的是 `input.pressed`（`{ KeyH: true }` 这样的按键名表），
+我却按 KeyboardEvent 写成了 `e.code` —— 永远 undefined，表现为
+「按钮能点、H 键没反应」。
+
+### 设计取舍
+
+- **UI 不重算经济公式。** `haul` / `bonus` / `cost` / `lost` 都由
+  `core/rules.js` 的 `settle()` 返回，`haul + bonus === value` 有单测守着。
+  抄一份经济公式就等于埋一个迟早会对不上的雷。
+- **失败局要写「钱去哪了」。** 只显示 0 的话玩家学不到东西，
+  所以失败局显式列出「装备投入 / 遗失物资 / 保险赔付」，物资栏标题也从
+  「舱内物资」改成红色的「遗失物资」。
+- **深度系数显式写进明细文字**（「战利品（含深度加成 ×1.97）」），
+  否则玩家看不懂同一个东西为什么这趟更值钱。
