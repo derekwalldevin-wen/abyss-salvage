@@ -43,23 +43,24 @@ export async function loadAssets(renderer, onProgress) {
   const tick = () => { done++; onProgress?.(Math.min(0.99, done / total)); };
 
   const tex = {};
-  await Promise.all(TEX_SETS.map(async (name) => {
-    const load = (kind) => new Promise((res, rej) =>
+  await runPool(TEX_SETS, 4, async (name) => {
+    const load = (kind) => withRetry(() => new Promise((res, rej) =>
       tl.load(`assets/tex/${name}_${kind}.jpg`, (t) => {
         t.wrapS = t.wrapT = THREE.RepeatWrapping;
         t.anisotropy = aniso;
         if (kind === 'diff') t.colorSpace = THREE.SRGBColorSpace;
         tick(); res(t);
-      }, undefined, rej));
+      }, undefined, rej)));
     const [map, normalMap, armMap] = await Promise.all([load('diff'), load('nor'), load('arm')]);
     tex[name] = { map, normalMap, armMap };
-  }));
+  });
 
   const models = {};
   const modelErrs = [];
-  await Promise.all([...new Set(MODELS)].map(async (name) => {
+  const names = [...new Set(MODELS)];
+  await runPool(names, 6, async (name) => {
     try {
-      const g = await gl.loadAsync(`assets/models/${name}.slim.glb`);
+      const g = await withRetry(() => gl.loadAsync(`assets/models/${name}.slim.glb`));
       models[name] = g.scene;
       tick();
     } catch (e) {
@@ -71,13 +72,13 @@ export async function loadAssets(renderer, onProgress) {
       console.warn('模型加载失败', name, e.message);
       tick();
     }
-  }));
+  });
 
   // 水下环境光用海生馆 HDRI；内舱用洞穴 HDRI 备用
   const env = {};
   for (const [key, file] of [['sea', 'ushaka_sea_world_aquarium'], ['cave', 'small_cave']]) {
     try {
-      const d = await new RGBELoader().loadAsync(`assets/hdri/${file}.hdr`);
+      const d = await withRetry(() => new RGBELoader().loadAsync(`assets/hdri/${file}.hdr`));
       const pmrem = new THREE.PMREMGenerator(renderer);
       env[key] = pmrem.fromEquirectangular(d).texture;
       d.dispose(); pmrem.dispose();
@@ -86,6 +87,47 @@ export async function loadAssets(renderer, onProgress) {
   }
 
   return { tex, models, env, errs: { models: modelErrs } };
+}
+
+// ---------------------------------------------------------------------------
+// 并发限制 + 重试
+//
+// 为什么必须有：20MB 资产原来是一口气 Promise.all 出去，60 个并发请求。
+// 本地测试服务器是 HTTP/1.1、无限流，测多少次都过；
+// 上了 GitHub Pages（HTTP/2）就随机 ERR_HTTP2_PROTOCOL_ERROR ——
+// 实测 metal_jerrycan / hanging_industrial_lamp 这类模型直接加载失败，
+// 对应道具**凭空消失**，而且只在真机上偶发，测试环境永远复现不了。
+//
+// 并发 6 是「够快又不压垮服务器」的经验值：20MB 正常带宽下约几秒。
+// ---------------------------------------------------------------------------
+
+/** 固定并发数地跑一批任务。单个失败不中断整批。 */
+async function runPool(items, limit, worker) {
+  const out = new Array(items.length);
+  let next = 0;
+  const runners = new Array(Math.min(limit, items.length)).fill(0).map(async () => {
+    while (next < items.length) {
+      const i = next++;
+      try { out[i] = await worker(items[i], i); }
+      catch (e) { out[i] = { __err: e }; }
+    }
+  });
+  await Promise.all(runners);
+  return out;
+}
+
+/** 失败重试。HTTP/2 协议错误这类瞬时故障重试一次就好了。 */
+async function withRetry(fn, tries = 3) {
+  let last;
+  for (let i = 0; i < tries; i++) {
+    try { return await fn(); }
+    catch (e) {
+      last = e;
+      // 退避 250ms / 500ms：给服务器喘口气，别一失败就再补一轮猛攻
+      if (i < tries - 1) await new Promise((r) => setTimeout(r, 250 * (i + 1)));
+    }
+  }
+  throw last;
 }
 
 /**
