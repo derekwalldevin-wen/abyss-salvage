@@ -1,0 +1,30 @@
+{
+  "name": "abyss-salvage",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "深渊打捞 · Abyss Salvage — Three.js 单人撤离射击（沉没钻井平台打捞）",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run validate:map && vite build && node tools/copy-assets.mjs",
+    "preview": "vite preview",
+    "validate:map": "node tools/validate-map.mjs",
+    "check:assets": "npm run build && node tools/check-assets.mjs",
+    "check:render": "npm run build && node tools/render-check.mjs",
+    "check:bright": "npm run build && node tools/diag-bright.mjs",
+    "check:dist": "npm run build && node tools/smoke-dist.mjs",
+    "verify": "npm test && npm run validate:map -- --seeds 80 && npm run check:assets && npm run check:render && npm run check:dist",
+    "sim": "node tools/sim.mjs",
+    "balance": "node tools/balance.mjs",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "three": "0.170.0"
+  },
+  "devDependencies": {
+    "gltfpack": "^1.3.0",
+    "playwright": "1.63.0",
+    "sharp": "^0.35.5",
+    "vite": "5.4.11"
+  }
+}

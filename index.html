@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#0d2b33" />
+    <title>深渊打捞 · Abyss Salvage</title>
+    <link rel="stylesheet" href="./src/ui/style.css" />
+    <!-- 注意：这里**没有** importmap。Vite 会把 three 解析成真实依赖并打进 bundle，
+         CDN 部署时不保证有 /node_modules/ 可用。原来那份 importmap 只在 dev 下成立，
+         留着会让生产构建悄悄回退到 404 路径。 -->
+  </head>
+  <body>
+    <canvas id="gl"></canvas>
+
+    <!-- 加载层 -->
+    <div id="loading">
+      <div class="ld-brand">深渊打捞</div>
+      <div class="ld-sub">ABYSS SALVAGE · 钻井平台「墨龙号」</div>
+      <div class="ld-track"><div id="ldbar"></div></div>
+      <div id="ldtxt">正在加载…</div>
+      <div class="ld-tip" id="ldtip"></div>
+    </div>
+
+    <!-- HUD -->
+    <div id="hud" hidden>
+      <div class="top">
+        <div class="chip mono" id="timer">12:00</div>
+        <div class="chip" id="depthChip"><span class="k">深度</span><b id="depth">0</b><span class="u">m</span></div>
+        <div class="chip" id="haulChip"><span class="k">舱内价值</span><b id="haul">0</b></div>
+        <div class="chip" id="killChip"><span class="k">击杀</span><b id="kills">0</b></div>
+      </div>
+
+      <div class="o2wrap">
+        <div class="o2label">气瓶</div>
+        <div class="o2track"><div id="o2fill"></div><div id="o2mark"></div></div>
+        <div class="o2num mono" id="o2num">100</div>
+      </div>
+
+      <div class="vitals">
+        <div class="vrow"><span>生命</span><div class="vbar hp"><i id="hpb"></i></div><b class="mono" id="hpn">100</b></div>
+        <div class="vrow"><span id="suitName">潜水服</span><div class="vbar ar"><i id="arb"></i></div><b class="mono" id="arn">0/0</b></div>
+        <div class="vrow"><span id="helmName">头盔</span><div class="vbar hl"><i id="hlb"></i></div><b class="mono" id="hln">0/0</b></div>
+        <div class="vrow"><span>体力</span><div class="vbar st"><i id="stb"></i></div><b class="mono" id="stn">100</b></div>
+        <div class="cons">
+          <span class="con"><b>H</b>急救包 <i id="meds">2</i></span>
+          <span class="con"><b>G</b>手雷 <i id="nades">2</i></span>
+        </div>
+      </div>
+
+      <div class="weapon">
+        <div class="wname" id="wname">—</div>
+        <div class="wammo mono"><b id="wmag">0</b><span>/</span><i id="wres">0</i></div>
+        <div class="wslots">
+          <span class="ws on" data-slot="0">1</span>
+          <span class="ws" data-slot="1">2</span>
+          <span class="ws" data-slot="2">3</span>
+        </div>
+        <div class="wreload" id="reloadbar" hidden><i></i></div>
+      </div>
+
+      <div class="threat" id="threat" hidden>被 <b>0</b> 名敌人发现</div>
+      <div class="prompt" id="prompt" hidden></div>
+      <div class="center" id="center"></div>
+      <div class="extract" id="extract" hidden>
+        <div class="extxt" id="extxt">上浮中…</div>
+        <div class="exbar"><i id="exfill"></i></div>
+      </div>
+      <div class="feed" id="feed"></div>
+      <canvas id="minimap" width="220" height="220"></canvas>
+    </div>
+
+    <div id="ui"></div>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

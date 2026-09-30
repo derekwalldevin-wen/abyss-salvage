@@ -1,0 +1,33 @@
+# Cloudflare Pages / Netlify 的响应头配置。
+# 纯静态、纯 CDN 托管，不需要服务端 —— 这个文件就是「服务端」的全部。
+
+# three 的 chunk 约 615KB（gzip 157KB），内容随版本变但极少变。
+# 给它一年 immutable：用户第二次打开直接从 CDN 边缘拿，零回源。
+/assets/three-*.js
+  Cache-Control: public, max-age=31536000, immutable
+
+# 应用代码同理，带 hash 改名，可以永久缓存。
+/assets/index-*.js
+  Cache-Control: public, max-age=31536000, immutable
+/assets/index-*.css
+  Cache-Control: public, max-age=31536000, immutable
+
+# 34MB → 20MB 的资产是**不带 hash 的固定路径**（代码里写死 assets/models/xxx.slim.glb），
+# 所以不能给 immutable：换资产之后同名文件会变，缓存不失效就是给用户发旧模型。
+# 缓存 30 天 + must-revalidate，兼顾速度和可更新性。
+/assets/models/*
+  Cache-Control: public, max-age=2592000, stale-while-revalidate=86400
+/assets/tex/*
+  Cache-Control: public, max-age=2592000, stale-while-revalidate=86400
+/assets/hdri/*
+  Cache-Control: public, max-age=2592000, stale-while-revalidate=86400
+
+# 入口不缓存，否则发新版本时用户会拿到指向旧 hash 文件的 HTML → 白屏 404。
+/index.html
+  Cache-Control: no-cache, must-revalidate
+
+# 三个都声明一遍：不同 CDN 挑自己认的那个读。
+X-Content-Type-Options: nosniff
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer

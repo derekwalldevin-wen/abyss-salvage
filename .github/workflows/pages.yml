@@ -1,0 +1,59 @@
+name: Deploy Abyss Salvage to GitHub Pages
+
+# 和 gulangyu-3d / banyechangan-3d 保持同一套发布方式：
+# 推到 main 就构建 + 发布，Pages 上拿到的就是 dist/。
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 允许并发推送，别让两次发布互相取消
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # npm run build 里第一件事是地图校验（validate:map）。
+      # 撤离点不可达 / 门洞太窄 / 容器点被堵死会让这一步直接失败，
+      # 也就**不会产出 dist** —— 地图正确性是发布门禁，不只是本地检查。
+      - name: Unit tests
+        run: npm test
+
+      - name: Build (validates map first)
+        run: npm run build
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

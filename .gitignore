@@ -1,0 +1,8 @@
+﻿node_modules
+dist
+*.log
+dev.err
+preview.err
+
+# 未简化的原始 GLB（28.9MB）。用 tools/optimize-models.mjs 重新生成 .slim.glb。
+assets/models/*.opt.glb

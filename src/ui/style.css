@@ -1,0 +1,165 @@
+﻿/* 深渊打捞 · HUD 样式。配色取自水下：深青底 + 铜金强调 + 荧光青。 */
+:root {
+  --bg: #0d2b33;
+  --panel: rgba(6, 20, 26, 0.78);
+  --line: rgba(120, 200, 210, 0.22);
+  --text: #d6ecef;
+  --muted: #7fa3ab;
+  --gold: #e8b24a;
+  --cyan: #5cffc8;
+  --red: #ff5a4d;
+  --hp: #62d97a;
+  --armor: #4aa3ff;
+  --helm: #b36bff;
+  --stam: #e8d24a;
+  --mono: ui-monospace, "Cascadia Mono", "Consolas", monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0; padding: 0; height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#gl { position: fixed; inset: 0; display: block; width: 100%; height: 100%; }
+
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+/* ---------------- 加载层 ---------------- */
+#loading {
+  position: fixed; inset: 0; z-index: 50;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px;
+  background: radial-gradient(ellipse at 50% 35%, #14424d 0%, #0a2028 45%, #04121a 100%);
+}
+.ld-brand { font-size: 46px; font-weight: 800; letter-spacing: 8px; color: var(--cyan); text-shadow: 0 0 30px rgba(92, 255, 200, 0.35); }
+.ld-sub { font-size: 13px; letter-spacing: 3px; color: var(--muted); }
+.ld-track { width: min(420px, 70vw); height: 4px; background: rgba(255, 255, 255, 0.08); border-radius: 2px; overflow: hidden; margin-top: 8px; }
+#ldbar { height: 100%; width: 0; background: linear-gradient(90deg, #2a8f9e, var(--cyan)); transition: width 0.2s; }
+#ldtxt { font-size: 13px; color: var(--muted); }
+.ld-tip { font-size: 12px; color: #5c7f88; max-width: 460px; text-align: center; line-height: 1.6; margin-top: 6px; }
+.bootfail { text-align: center; color: var(--red); max-width: 520px; padding: 20px; }
+.bootfail b { display: block; font-size: 20px; margin-bottom: 8px; }
+
+/* ---------------- HUD 通用 ---------------- */
+#hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+#hud[hidden] { display: none; }
+body.in-raid #hud { display: block; }
+
+.chip {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 4px 10px;
+  font-size: 13px;
+  backdrop-filter: blur(4px);
+}
+.chip .k { color: var(--muted); font-size: 11px; margin-right: 6px; }
+.chip .u { color: var(--muted); font-size: 11px; margin-left: 2px; }
+.chip b { color: var(--text); font-weight: 700; }
+
+.top { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; }
+#timer { color: var(--cyan); font-weight: 700; font-size: 15px; }
+#depthChip b { color: var(--gold); }
+
+/* ---------------- 氧气（核心 HUD） ---------------- */
+.o2wrap {
+  position: absolute; top: 58px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 8px;
+}
+.o2label { font-size: 11px; color: var(--muted); letter-spacing: 2px; }
+.o2track {
+  position: relative; width: min(300px, 52vw); height: 10px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--line); border-radius: 5px; overflow: hidden;
+}
+#o2fill { height: 100%; width: 100%; background: linear-gradient(90deg, #2b8f9c, var(--cyan)); transition: width 0.12s linear; }
+#o2mark { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(255, 255, 255, 0.5); left: 35%; }
+.o2num { font-size: 12px; color: var(--cyan); min-width: 30px; }
+.o2wrap.low #o2fill { background: linear-gradient(90deg, #a33, var(--red)); }
+.o2wrap.low .o2num { color: var(--red); }
+
+/* ---------------- 生命/护具/体力 ---------------- */
+.vitals { position: absolute; left: 14px; bottom: 14px; width: 240px; }
+.vrow { display: flex; align-items: center; gap: 7px; margin-top: 5px; font-size: 11px; color: var(--muted); }
+.vrow > span { width: 44px; flex: none; }
+.vrow b { width: 46px; text-align: right; color: var(--text); font-size: 11px; }
+.vbar { flex: 1; height: 8px; background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 2px; overflow: hidden; }
+.vbar i { display: block; height: 100%; width: 100%; transition: width 0.15s; }
+.vbar.hp i { background: var(--hp); }
+.vbar.ar i { background: var(--armor); }
+.vbar.hl i { background: var(--helm); }
+.vbar.st i { background: var(--stam); }
+.cons { display: flex; gap: 12px; margin-top: 8px; font-size: 12px; color: var(--muted); }
+.con b { display: inline-block; min-width: 16px; text-align: center; background: rgba(255, 255, 255, 0.1); border-radius: 2px; color: var(--text); font-size: 10px; margin-right: 3px; }
+.con i { font-style: normal; color: var(--text); }
+
+/* ---------------- 武器 ---------------- */
+.weapon { position: absolute; right: 16px; bottom: 14px; text-align: right; }
+.wname { font-size: 14px; color: var(--text); }
+.wammo { font-size: 34px; font-weight: 800; line-height: 1; margin-top: 2px; }
+.wammo b { color: var(--cyan); }
+.wammo span { color: var(--muted); margin: 0 3px; font-size: 20px; }
+.wammo i { color: var(--muted); font-style: normal; font-size: 20px; }
+.wammo.empty b { color: var(--red); }
+.wslots { display: flex; gap: 5px; justify-content: flex-end; margin-top: 6px; }
+.ws { font-size: 11px; padding: 2px 9px; border: 1px solid var(--line); border-radius: 2px; color: var(--muted); }
+.ws.on { color: #06181d; background: var(--cyan); border-color: var(--cyan); font-weight: 700; }
+.wreload { height: 3px; background: rgba(255, 255, 255, 0.12); margin-top: 5px; width: 90px; margin-left: auto; }
+.wreload i { display: block; height: 100%; background: var(--gold); width: 0; }
+
+/* ---------------- 提示 / 撤离 / 事件流 ---------------- */
+.prompt {
+  position: absolute; left: 50%; bottom: 26%; transform: translateX(-50%);
+  background: var(--panel); border: 1px solid var(--line); border-radius: 3px;
+  padding: 6px 14px; font-size: 13px; color: var(--text);
+}
+.prompt b { color: var(--gold); }
+.center {
+  position: absolute; left: 50%; top: 30%; transform: translateX(-50%);
+  text-align: center; font-size: 15px; color: var(--text); text-shadow: 0 2px 10px #000;
+  max-width: 60vw; line-height: 1.7;
+}
+.extract { position: absolute; left: 50%; top: 42%; transform: translateX(-50%); text-align: center; width: 300px; }
+.extxt { font-size: 15px; color: var(--cyan); margin-bottom: 6px; }
+.exbar { height: 6px; background: rgba(255, 255, 255, 0.12); border-radius: 3px; overflow: hidden; }
+.exbar i { display: block; height: 100%; width: 0; background: var(--cyan); }
+.threat {
+  position: absolute; top: 88px; left: 50%; transform: translateX(-50%);
+  color: var(--red); font-size: 13px; text-shadow: 0 2px 8px #000;
+}
+.feed { position: absolute; right: 16px; top: 90px; text-align: right; font-size: 12px; color: var(--muted); }
+.feed div { margin-top: 3px; }
+.feed .fitem { margin-top: 3px; transition: opacity .2s linear; }
+.feed .good { color: var(--cyan); }
+.feed .bad { color: var(--red); }
+.feed .gold { color: var(--gold); }
+/* 空槽位：武器栏里没装东西的那一格要看得出来 */
+.ws.off { opacity: .3; }
+/* 氧气告急：低于 25% 时整条气瓶变红并轻微脉动 */
+.o2wrap.low #o2fill { background: linear-gradient(90deg, #ff6b5a, #ffb938); }
+.o2wrap.low .o2label, .o2wrap.low .o2num { color: #ff6b5a; }
+.o2wrap.low { animation: o2pulse 1.1s ease-in-out infinite; }
+@keyframes o2pulse { 0%,100% { opacity: 1; } 50% { opacity: .62; } }
+/* 被多名敌人发现 */
+.threat.bad b { color: var(--red); }
+
+#minimap {
+  position: absolute; right: 14px; top: 14px;
+  width: 168px; height: 168px; border-radius: 50%;
+  border: 1px solid var(--line); background: rgba(6, 20, 26, 0.72);
+}
+
+/* 移动端：压缩 HUD */
+@media (max-width: 760px) {
+  .vitals { width: 170px; }
+  .wammo { font-size: 26px; }
+  #minimap { width: 110px; height: 110px; }
+  .ld-brand { font-size: 32px; letter-spacing: 4px; }
+}
