@@ -1,5 +1,7 @@
 # 深渊打捞 · Abyss Salvage
 
+**在线试玩：https://derekwalldevin-wen.github.io/abyss-salvage/**
+
 单人撤离射击。沉没的钻井平台「墨龙号」分四层沉在海底，越深越值钱，也越危险。
 three.js + 原生 ES modules，无后端，静态托管即可。
 
@@ -97,7 +99,9 @@ node tools/optimize-models.mjs 0.25   # 产出 .slim.glb
 
 ## 部署
 
-纯静态，`dist/` 直接丢到任意 CDN。
+纯静态，`dist/` 直接丢到任意 CDN。本项目已上线 GitHub Pages，
+推 `main` 即触发 `.github/workflows/pages.yml`：
+91 个测试 → 地图校验 → `vite build` → `copy-assets` → deploy，任一步失败就不发版。
 
 ```bash
 npm run build
@@ -106,8 +110,12 @@ npm run build
 - 入口 `index.html`，`base: './'` 所以放子目录也能跑
 - `dist/assets/` 是带 hash 的 JS/CSS，CDN 上给 `immutable` 长期缓存
 - `dist/assets/models|tex|hdri/` 是固定路径，缓存 30 天（改了同名文件会变，不能给 immutable）
-- `dist/_headers` 已配好 Cloudflare Pages / Netlify 的响应头
+- `dist/_headers` 已配好 Cloudflare Pages / Netlify 的响应头（GitHub Pages 忽略它）
 
-实测产物：`index.html` 3.3KB + JS 706KB（gzip 195KB）+ 资产 20.5MB。
+实测产物：`index.html` 3.5KB + JS 706KB（gzip 195KB）+ 资产 19.8MB = 20.5MB。
+
+> 换到别的 CDN 时注意：GitHub Pages 首次建仓库**不会**自动启用 Pages，
+> `deploy-pages` 会失败，需要先在仓库设置里打开。
+> 走 API 的话是 `POST /repos/{owner}/{repo}/pages`，body `{"build_type":"workflow"}`。
 
 没有服务端、没有数据库、没有账号系统 —— 存档走 `localStorage`。
