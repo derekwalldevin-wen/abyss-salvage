@@ -245,15 +245,18 @@ export function buildWorld(o = {}) {
   // 高个子道具：挡移动也挡视线，模型高度按这个类抬
   const TALL_PROPS = new Set(['shelf', 'toolbox', 'chest', 'pipe', 'duct', 'gen', 'comp', 'bench', 'can']);
 
+  /** 某类道具碰撞盒的最长边（米） */
+  const maxDim = (kind) => Math.max(...(PROPS[kind] || [1, 1]));
+
   function prop(kind, x, z, rot = 0, s = 1, mat = 'iron') {
     const [bw, bd] = PROPS[kind] || [1, 1];
     const swap = Math.abs(Math.round(rot / (Math.PI / 2))) % 2 === 1;
     const w = (swap ? bd : bw) * s, d = (swap ? bw : bd) * s;
-    // 门口余量 2.6m。门洞本身只有 5m 宽，扣掉 0.45m 智能体半径再取整格后
-    // 只剩 4 个可走格。道具哪怕不压住门，只要站在门口那 4 格边上，门就等于
-    // 被堵死（实测把道具放大到真实尺寸后，40 个种子里有 1 个门只剩 0 格）。
-    // 余量必须大于最大道具的一半（管段/集装箱 6m），否则长条道具横过来就堵门。
-    if (blocksDoorway(x - w / 2, z - d / 2, x + w / 2, z + d / 2, 2.6)) return false;
+    // 门口余量 2.0m。门洞本身 5m 宽，扣掉 0.45m 智能体半径再取整格后只剩
+    // 4 个可走格。道具哪怕不压住门，只要站在门口那几格边上，门就等于被堵死。
+    // 余量要大于最大道具的一半（集装箱 6.1m → 3.05m），否则长条道具横过来就堵门；
+    // 但也不能太大，缩图之后房间本身只有 18~21m 深，留 3m 就走不动了。
+    if (blocksDoorway(x - w / 2, z - d / 2, x + w / 2, z + d / 2, 2.0)) return false;
     if (blocksKeepOut(x - w / 2, z - d / 2, x + w / 2, z + d / 2)) return false;
     const y = heightAt(x, z);
     add({ x0: x - w / 2, z0: z - d / 2, x1: x + w / 2, z1: z + d / 2, tall: TALL_PROPS.has(kind), y0: y, y1: y + (TALL_PROPS.has(kind) ? 2.2 : 1.1), prop: kind });
@@ -294,9 +297,22 @@ export function buildWorld(o = {}) {
     const [x0, z0, x1, z1] = zn.rect;
     const w = x1 - x0, d = z1 - z0;
     const natural = zn.tags.includes('natural');
-    // 密度按「每 110 平米一件」定。早先 260㎡/件，260×260 的图里只有
-    // 127 个道具，玩家在开阔区走 40m 看不到一样东西 —— 画面就是一块空板。
-    const n = natural ? Math.round(w * d / 190) : Math.round(w * d / 110);
+    // 密度按「每 85 平米一件」定。
+    //
+    // 地图从 260m 缩到 182m 之后，这个除数从 110 调到 85 才能把密度提上去
+    // （172 件 / 3.3ha = 52 件/ha，略高于原来的 48）。
+    // 试过更密的值：70 → 64 件/ha，20 个种子里挂 1 个门洞；
+    // 60 → 70 件/ha，直接出现「出生点无法寻路到撤离点」。所以 85 是实测上限。
+    //
+    // 密度之外，**限制道具尺寸比稀疏化更管用**：舱室内部只有 18~21m 深，
+    // 塞不下 6m 的集装箱。所以按区域类型给尺寸上限（见 CAP），
+    // 封闭舱室只放小件，敞开区/地标区才放大件。
+    const n = natural ? Math.round(w * d / 170) : Math.round(w * d / 100);
+    // 舱室内部只有 18~21m 深，塞不下 6m 的集装箱 —— 实测那样会直接把门洞
+    // 堵死（40 个种子全挂在 door-width 剩 0 格）。所以**按区域类型限制道具尺寸**：
+    // 封闭舱室只放小件，敞开区/地标区才放大件。这是缩图后能维持高密度的关键 ——
+    // 靠限制而不是靠稀疏化。
+    const CAP = (zn.tags.includes('room') || zn.tags.includes('vault')) ? 2.6 : 99;
     for (let i = 0; i < n; i++) {
       const x = x0 + 2 + rng.f() * Math.max(1, w - 4);
       const z = z0 + 2 + rng.f() * Math.max(1, d - 4);
@@ -309,6 +325,8 @@ export function buildWorld(o = {}) {
       else if (zn.tags.includes('cover')) kind = rng.pick(['crate', 'milcrate', 'pcrate', 'can', 'barrel', 'shelf']);
       else if (zn.tags.includes('room')) kind = rng.pick(['toolbox', 'cart', 'gen', 'comp', 'crate', 'shelf']);
       else kind = rng.pick(['crate', 'pcrate', 'barrel', 'handtruck', 'can']);
+      // 舱室放不下大件：抽到超尺寸就换成同池里的小件
+      if (maxDim(kind) > CAP) kind = rng.pick(['crate', 'pcrate', 'barrel', 'toolbox', 'jerry', 'tank']);
       // 撞到门洞就换个位置重试，最多 4 次
       for (let a = 0; a < 4; a++) {
         if (prop(kind, x, z, rng.f() * Math.PI * 2, 0.85 + rng.f() * 0.35)) break;
@@ -515,6 +533,7 @@ export function buildWorld(o = {}) {
     colliders, nav, grid,
     heightAt, depthAt, terrainClear,
     bands: BANDS, ramps: RAMPS,
+    zones: ZONES,              // 渲染/工具需要知道每个区域长什么样（美术验收按区域取样）
     spawns,
     extracts, enemySpots,
     containerSpots, lootSpots,

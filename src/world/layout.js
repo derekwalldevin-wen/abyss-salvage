@@ -8,7 +8,26 @@
 // 早期版本把四层画成互相重叠的矩形（正是这一点在写 build.js 时才暴露出来），
 // 那样 heightAt 无解。现在改成条带 + 斜坡后，整张图的地面高度是 z 的分段线性函数。
 
-export const HALF = 130;                 // 可玩区半边长（米），260×260
+export const HALF = 91;                  // 可玩区半边长（米），156×156
+/**
+ * 全图尺寸倍率。
+ *
+ * 原来 260×260m 是错的尺度：固定镜头离玩家只有 20m，看得见的地面约
+ * 27×16m，而全图道具密度只有 48 件/公顷 —— 一屏里常常两三个道具，
+ * 「集装箱堆」这种区域根本认不出来。撤离射击的战场尺度应该是
+ * 「一眼看完大半张图」。压到 156m 后同样数量的道具落在 1/2.8 的面积上。
+ *
+ * 边界很重要：**只有坐标缩放，人体尺度不缩**。墙高 3.2m、门宽 5.0m、
+ * 导航膨胀 0.45m、集装箱 6.1m、条带深度 -6/-20/-34/-44 全都保持原值。
+ * 它们定义的是「人能钻过多大的门、能不能从箱子后面躲」，跟着地图一起缩
+ * 会让比例失真（门会宽到能开车进去、深度会缩水一半）。
+ */
+const SCALE = 0.7;
+/** 坐标缩放。设计值仍写在下面（好读），落到世界里过一遍这个。 */
+const S = (v) => Math.round(v * SCALE);
+/** 矩形缩放 */
+const R = (x0, z0, x1, z1) => [S(x0), S(z0), S(x1), S(z1)];
+
 export const SEA_LEVEL = 0;
 export const SEABED_Y = -48;
 
@@ -17,10 +36,11 @@ export const SEABED_Y = -48;
  * 条带之间由 RAMPS 里的斜坡衔接；斜坡之外是断崖（不可通行）。
  */
 export const BANDS = [
-  { id: 'foredeck', name: '艏层甲板', z0: -130, z1: -58, floorY: -6 },
-  { id: 'work', name: '中层作业区', z0: -58, z1: 14, floorY: -20 },
-  { id: 'drill', name: '深井钻井区', z0: 14, z1: 78, floorY: -34 },
-  { id: 'hold', name: '舱底压载舱', z0: 78, z1: 130, floorY: -44 },
+  { id: 'foredeck', name: '艏层甲板', z0: S(-130), z1: S(-58), floorY: -6 },
+  { id: 'work', name: '中层作业区', z0: S(-58), z1: S(14), floorY: -20 },
+  { id: 'drill', name: '深井钻井区', z0: S(14), z1: S(78), floorY: -34 },
+  // 最后一条带贴到边界：原来 z1=130 正好等于 HALF，缩放后会差 2m，缝里能掉下去
+  { id: 'hold', name: '舱底压载舱', z0: S(78), z1: 91, floorY: -44 },
 ];
 
 /** 条带地面高度（米深）。索引 0 最浅。 */
@@ -32,21 +52,21 @@ export const DEEP = BANDS.map(b => b.floorY);
  * 刻意做成斜置通道而不是真垂直 —— 玩家始终只在 2.5D 平面上走，走过去就换了一层深度。
  */
 export const RAMPS = [
-  { from: 'foredeck', to: 'work', z0: -70, z1: -58, y0: -6, y1: -20, x0: -100, x1: -60, name: '艏西坡道' },
-  { from: 'foredeck', to: 'work', z0: -70, z1: -58, y0: -6, y1: -20, x0: 20, x1: 60, name: '艏东坡道' },
-  { from: 'work', to: 'drill', z0: 2, z1: 14, y0: -20, y1: -34, x0: -30, x1: 10, name: '作业西坡道' },
-  { from: 'work', to: 'drill', z0: 2, z1: 14, y0: -20, y1: -34, x0: 40, x1: 80, name: '作业东坡道' },
-  { from: 'drill', to: 'hold', z0: 66, z1: 78, y0: -34, y1: -44, x0: -40, x1: 0, name: '深井西坡道' },
-  { from: 'drill', to: 'hold', z0: 66, z1: 78, y0: -34, y1: -44, x0: 30, x1: 70, name: '深井东坡道' },
+  { from: 'foredeck', to: 'work', z0: S(-70), z1: S(-58), y0: -6, y1: -20, x0: S(-100), x1: S(-60), name: '艏西坡道' },
+  { from: 'foredeck', to: 'work', z0: S(-70), z1: S(-58), y0: -6, y1: -20, x0: S(20), x1: S(60), name: '艏东坡道' },
+  { from: 'work', to: 'drill', z0: S(2), z1: S(14), y0: -20, y1: -34, x0: S(-30), x1: S(10), name: '作业西坡道' },
+  { from: 'work', to: 'drill', z0: S(2), z1: S(14), y0: -20, y1: -34, x0: S(40), x1: S(80), name: '作业东坡道' },
+  { from: 'drill', to: 'hold', z0: S(66), z1: S(78), y0: -34, y1: -44, x0: S(-40), x1: S(0), name: '深井西坡道' },
+  { from: 'drill', to: 'hold', z0: S(66), z1: S(78), y0: -34, y1: -44, x0: S(30), x1: S(70), name: '深井东坡道' },
 ];
 
 /** 塌方破洞：同层内两条走廊之间的捷径，也是遭遇战点 */
 export const BREACHES = [
-  { floor: 'work', x: -50, z: -38, w: 5 },
-  { floor: 'work', x: 8, z: -46, w: 5 },
-  { floor: 'work', x: -20, z: 0, w: 6 },
-  { floor: 'drill', x: 38, z: 40, w: 5 },
-  { floor: 'hold', x: -32, z: 104, w: 5 },
+  { floor: 'work', x: S(-50), z: S(-38), w: 5 },
+  { floor: 'work', x: S(8), z: S(-46), w: 5 },
+  { floor: 'work', x: S(-20), z: S(0), w: 6 },
+  { floor: 'drill', x: S(38), z: S(40), w: 5 },
+  { floor: 'hold', x: S(-32), z: S(104), w: 5 },
 ];
 
 /**
@@ -56,33 +76,33 @@ export const BREACHES = [
  */
 export const ZONES = [
   // ---- 艏层甲板 (y = -6) ----
-  { id: 'heli', name: '直升机坪', band: 'foredeck', rect: [-120, -126, -62, -94], tags: ['open', 'landmark'] },
-  { id: 'crane', name: '吊车基座', band: 'foredeck', rect: [-40, -124, -4, -96], tags: ['landmark', 'cover'] },
-  { id: 'boxes', name: '集装箱堆', band: 'foredeck', rect: [20, -122, 82, -92], tags: ['cover'] },
-  { id: 'winch', name: '艉部绞车区', band: 'foredeck', rect: [94, -120, 126, -88], tags: ['open'] },
-  { id: 'deckcorr', name: '艏层通道', band: 'foredeck', rect: [-56, -90, 16, -64], tags: ['corridor'] },
+  { id: 'heli', name: '直升机坪', band: 'foredeck', rect: R(-120, -126, -62, -94), tags: ['open', 'landmark'] },
+  { id: 'crane', name: '吊车基座', band: 'foredeck', rect: R(-40, -124, -4, -96), tags: ['landmark', 'cover'] },
+  { id: 'boxes', name: '集装箱堆', band: 'foredeck', rect: R(20, -122, 82, -92), tags: ['cover'] },
+  { id: 'winch', name: '艉部绞车区', band: 'foredeck', rect: R(94, -120, 126, -88), tags: ['open'] },
+  { id: 'deckcorr', name: '艏层通道', band: 'foredeck', rect: R(-56, -90, 16, -64), tags: ['corridor'] },
 
   // ---- 中层作业区 (y = -20) ----
-  { id: 'pipe', name: '管廊', band: 'work', rect: [-118, -54, -62, -24], tags: ['cover', 'corridor'] },
-  { id: 'pump', name: '泵房', band: 'work', rect: [-46, -52, 4, -22], tags: ['room'] },
-  { id: 'mess', name: '餐厅', band: 'work', rect: [20, -50, 64, -24], tags: ['room'] },
-  { id: 'bunk', name: '宿舍', band: 'work', rect: [80, -52, 120, -20], tags: ['room'] },
-  { id: 'cargo', name: '货舱', band: 'work', rect: [-118, -16, -58, 8], tags: ['room', 'cover'] },
-  { id: 'workcorr', name: '作业区通道', band: 'work', rect: [-44, -16, 76, 8], tags: ['corridor'] },
+  { id: 'pipe', name: '管廊', band: 'work', rect: R(-118, -54, -62, -24), tags: ['cover', 'corridor'] },
+  { id: 'pump', name: '泵房', band: 'work', rect: R(-46, -52, 4, -22), tags: ['room'] },
+  { id: 'mess', name: '餐厅', band: 'work', rect: R(20, -50, 64, -24), tags: ['room'] },
+  { id: 'bunk', name: '宿舍', band: 'work', rect: R(80, -52, 120, -20), tags: ['room'] },
+  { id: 'cargo', name: '货舱', band: 'work', rect: R(-118, -16, -58, 8), tags: ['room', 'cover'] },
+  { id: 'workcorr', name: '作业区通道', band: 'work', rect: R(-44, -16, 76, 8), tags: ['corridor'] },
 
   // ---- 深井钻井区 (y = -34) ----
-  { id: 'derrick', name: '钻杆区', band: 'drill', rect: [-112, 20, -52, 56], tags: ['landmark', 'cover'] },
-  { id: 'mud', name: '泥浆池', band: 'drill', rect: [-32, 22, 30, 54], tags: ['open'] },
-  { id: 'engine', name: '机房', band: 'drill', rect: [48, 20, 98, 54], tags: ['room'] },
-  { id: 'drillcorr', name: '钻井通道', band: 'drill', rect: [-48, 60, 100, 76], tags: ['corridor'] },
+  { id: 'derrick', name: '钻杆区', band: 'drill', rect: R(-112, 20, -52, 56), tags: ['landmark', 'cover'] },
+  { id: 'mud', name: '泥浆池', band: 'drill', rect: R(-32, 22, 30, 54), tags: ['open'] },
+  { id: 'engine', name: '机房', band: 'drill', rect: R(48, 20, 98, 54), tags: ['room'] },
+  { id: 'drillcorr', name: '钻井通道', band: 'drill', rect: R(-48, 60, 100, 76), tags: ['corridor'] },
 
   // ---- 舱底压载舱 (y = -44) ----
-  { id: 'ballast', name: '压载舱', band: 'hold', rect: [-112, 84, -42, 118], tags: ['room'] },
-  { id: 'sealed', name: '封死货舱', band: 'hold', rect: [-24, 84, 38, 114], tags: ['room', 'vault'] },
-  { id: 'keel', name: '龙骨通道', band: 'hold', rect: [-38, 118, 42, 129], tags: ['corridor'] },
+  { id: 'ballast', name: '压载舱', band: 'hold', rect: R(-112, 84, -42, 118), tags: ['room'] },
+  { id: 'sealed', name: '封死货舱', band: 'hold', rect: R(-24, 84, 38, 114), tags: ['room', 'vault'] },
+  { id: 'keel', name: '龙骨通道', band: 'hold', rect: R(-38, 118, 42, 129), tags: ['corridor'] },
   // 海床废墟/残骸场：人工结构之外的自然堆积，放在条带两端的 x 极值处
-  { id: 'wreck', name: '海床废墟', band: 'hold', rect: [-128, 82, -116, 126], tags: ['natural'] },
-  { id: 'debris', name: '残骸场', band: 'drill', rect: [112, 20, 128, 60], tags: ['natural'] },
+  { id: 'wreck', name: '海床废墟', band: 'hold', rect: R(-128, 82, -116, 126), tags: ['natural'] },
+  { id: 'debris', name: '残骸场', band: 'drill', rect: R(112, 20, 128, 60), tags: ['natural'] },
 ];
 
 /**
@@ -92,19 +112,19 @@ export const ZONES = [
  * 撤离点被自己的场景道具堵死是这类项目最常见的低级 bug。
  */
 export const EXTRACTS = [
-  { name: '艏部吊笼', band: 'foredeck', x: -92, z: -110, depth: 6 },
-  { name: '艉部绞车', band: 'foredeck', x: 110, z: -104, depth: 6 },
-  { name: '中层气闸', band: 'work', x: -22, z: -12, depth: 20 },     // 作业区通道内，避开泵房中心
-  { name: '泵房顶口', band: 'work', x: 52, z: -36, depth: 20 },
-  { name: '绞车深井', band: 'drill', x: 20, z: 70, depth: 34 },     // 钻井通道内，避开泥浆池与两条坡道口
-  { name: '龙骨舱口', band: 'hold', x: 0, z: 124, depth: 44 },
+  { name: '艏部吊笼', band: 'foredeck', x: S(-92), z: S(-110), depth: 6 },
+  { name: '艉部绞车', band: 'foredeck', x: S(110), z: S(-104), depth: 6 },
+  { name: '中层气闸', band: 'work', x: S(-22), z: S(-12), depth: 20 },     // 作业区通道内，避开泵房中心
+  { name: '泵房顶口', band: 'work', x: S(52), z: S(-36), depth: 20 },
+  { name: '绞车深井', band: 'drill', x: S(20), z: S(70), depth: 34 },     // 钻井通道内，避开泥浆池与两条坡道口
+  { name: '龙骨舱口', band: 'hold', x: S(0), z: S(124), depth: 44 },
 ];
 
 /** 玩家出生点：全部在艏层最浅处（潜水员从吊笼下水） */
 export const SPAWNS = [
-  { x: -104, z: -118 }, { x: -70, z: -120 }, { x: 66, z: -118 },
-  { x: 108, z: -112 }, { x: -30, z: -112 }, { x: 34, z: -84 },
-  { x: -20, z: -80 }, { x: 96, z: -70 },
+  { x: S(-104), z: S(-118) }, { x: S(-70), z: S(-120) }, { x: S(66), z: S(-118) },
+  { x: S(108), z: S(-112) }, { x: S(-30), z: S(-112) }, { x: S(34), z: S(-84) },
+  { x: S(-20), z: S(-80) }, { x: S(96), z: S(-70) },
 ];
 
 const roleFor = {

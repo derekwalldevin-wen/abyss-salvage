@@ -102,7 +102,9 @@ test('build: 产出完整且内部自洽', () => {
   assert.ok(w.nav && w.nav.N === HALF * 2);
   assert.equal(w.grid.length, HALF * 2 * HALF * 2);
   assert.equal(w.extracts.length, 6);
-  assert.ok(w.enemySpots.length > 25, `敌人刷新点太少: ${w.enemySpots.length}`);
+  // 地图从 260m 缩到 182m（0.49 倍面积）后刷新点从 39 降到 23。
+  // 断言跟的是「一局够不够打」，不是绝对数量，所以按新面积重新定线。
+  assert.ok(w.enemySpots.length > 18, `敌人刷新点太少: ${w.enemySpots.length}`);
   assert.ok(w.containerSpots.length > 30, `容器点太少: ${w.containerSpots.length}`);
   assert.ok(w.draw.length > 200, `绘制指令太少: ${w.draw.length}`);
   assert.ok(w.doorways.length > 10, '应有多个门洞供断言检查');
@@ -138,7 +140,9 @@ test('build: 8 个种子全部通过校验', () => {
 test('build: 深层容器数量足够（高价值层不能是空的）', () => {
   const w = buildWorld({ seed: 20260928 });
   const deep = w.containerSpots.filter(c => c.type === 'vault' || c.type === 'hold');
-  assert.ok(deep.length >= 6, `保险库/封死货舱只有 ${deep.length} 个`);
+  // 封死货舱区域随图缩小，深层高价值容器点从 ~12 降到 4。4 个够撑起
+  // 「越深越值钱」这条设计意图（保险库另有深度门槛兜底）。
+  assert.ok(deep.length >= 4, `保险库/封死货舱只有 ${deep.length} 个`);
   for (const c of deep) {
     assert.ok(depthAt(c.x, c.z) >= (CONTAINERS[c.type].minDepth ?? 0) - 0.5,
       `${c.type} 被放在 ${depthAt(c.x, c.z).toFixed(1)}m`);
@@ -250,7 +254,10 @@ test('断言有效性: 敌人刷新点离出生点太近 → 被抓', () => {
 // ================= 4. 工具函数 =================
 test('freeCellsIn: 开阔处远多于墙角', () => {
   const w = buildWorld({ seed: 20260928 });
-  const open = freeCellsIn(w, 0, -100, 6);
+  // 采样点必须从布局推导，不能写死坐标：地图从 260m 缩到 182m 之后，
+  // 写死的 (0,-100) 已经落到图外，这个断言会一直失败却和代码质量无关。
+  const corr = ZONES.find(z => z.id === 'deckcorr').rect;
+  const open = freeCellsIn(w, Math.round((corr[0] + corr[2]) / 2), Math.round((corr[1] + corr[3]) / 2), 6);
   assert.ok(open > 20, `开阔处可站格 ${open} 偏少`);
   const corner = freeCellsIn(w, -HALF + 0.5, -HALF + 0.5, 6);
   assert.ok(corner < open, '墙角应明显更少');
@@ -263,8 +270,8 @@ test('insideAnyCollider: 能识别内外', () => {
   assert.ok(insideAnyCollider(w, mid.x, mid.z), '中心应判定为在内部');
   // 随便找个远离所有碰撞体的点
   let found = false;
-  for (let x = -120; x <= 120 && !found; x += 7) {
-    for (let z = -120; z <= 120 && !found; z += 11) {
+  for (let x = -HALF + 4; x <= HALF - 4 && !found; x += 7) {
+    for (let z = -HALF + 4; z <= HALF - 4 && !found; z += 11) {
       if (!insideAnyCollider(w, x, z)) { found = true; assert.ok(w.nav.walkableAt(x, z), `${x},${z} 应为空地`); }
     }
   }
