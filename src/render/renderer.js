@@ -65,16 +65,21 @@ export function createCamera() {
   return cam;
 }
 
-/** 水下光照：从头顶斜射下来的冷光 + 微弱的环境补光 */
+/**
+ * 水下光照。
+ *
+ * 调了好几版才找到感觉。核心问题不是「亮度不够」，而是**动态范围太窄**：
+ * 实测 95% 的像素挤在亮度 32~128 之间，高光（>128）几乎一个都没有。
+ * 全是中间调的画面看着就是一团绿糊 —— 形体、光源方向、材质全都读不出来。
+ *
+ * 所以目标不是更亮，而是**拉开明暗**：
+ *   - 甲板压暗（接近剪影），道具和轮廓才跳得出来
+ *   - 平行光加强、半球光减弱 → 有方向性的明暗，物体才有体积
+ *   - 下半球用暖色 → 朝上/朝下的面不同色，否则物体是平的
+ * 深水散射让对比度天然低于户外，但「低对比」不等于「零对比」。
+ */
 export function createLights(scene) {
-  // 深水的对比度天然比户外低，但也不能一路压暗。
-  // 这组数值是按 tools/diag-bright.mjs 量出来的：8 个出生点全采样。
-  // 迭代记录（平均亮度 / 纯黑像素占比）：
-  //   sun 1.45 hemi 1.9 expo 1.00 →  20 / 53%   太暗，看不清
-  //   sun 2.40 hemi 2.1 expo 1.15 →  31 / 22%   仍偏暗
-  // 目标 55~85。深水的对比度天然比户外低，但这个游戏是要能打的，
-  // 「像深海」和「看不见」之间只隔一个数量级。
-  const sun = new THREE.DirectionalLight(0x9fe8e0, 3.6);
+  const sun = new THREE.DirectionalLight(0xa8f0e6, 3.4);
   sun.position.set(-0.42, 1, 0.28);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
@@ -88,8 +93,8 @@ export function createLights(scene) {
   sun.shadow.normalBias = 0.05;
   scene.add(sun, sun.target);
 
-  // 环境：上方是水色，下方是海床的暗沙色
-  const hemi = new THREE.HemisphereLight(0x3d8a95, 0x243634, 2.8);
+  // 上半球水色（冷），下半球海床暖沙色 —— 后者是体积感的关键
+  const hemi = new THREE.HemisphereLight(0x2f7d8c, 0x2a2620, 1.25);
   scene.add(hemi);
   return { sun, hemi };
 }

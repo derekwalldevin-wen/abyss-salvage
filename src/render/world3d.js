@@ -11,7 +11,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { tiledBox, tiledPlane, boxUV, pbr, TILE, planeUV } from './materials.js';
-import { addSeeThrough } from './seethrough.js';
+import { addSeeThrough, markPatched } from './seethrough.js';
 import { addCaustics } from './water.js';
 import { heightAt } from '../world/layout.js';
 
@@ -20,18 +20,26 @@ const PROP_CHUNK = 96;
 const chunkOf = (x, z) => `${Math.floor(x / CHUNK)},${Math.floor(z / CHUNK)}`;
 
 // draw.mat → 贴图集 + 颜色
+//
+// 配色是「甲板压暗、道具偏亮」：固定斜角镜头俯视甲板时，地板占了大半画面，
+// 地板一亮，所有立在地上的东西都糊进去了。压暗地板等于给道具当背景板。
+// rough 那一项其实被下面 m.metalness = cfg.rough 覆盖了，改它没用。
 const MAT_MAP = {
-  rusty: { set: 'rusty_metal', color: 0xa89890, tile: 'rusty', rough: 1.0 },
-  iron: { set: 'corrugated_iron', color: 0x8fa0a4, tile: 'iron', rough: 1.0 },
-  deck: { set: 'metal_plate', color: 0x7d8a8c, tile: 'deck', rough: 1.0 },
-  floor: { set: 'concrete', color: 0x8e8a82, tile: 'floor', rough: 1.0 },
-  conc: { set: 'concrete', color: 0x767268, tile: 'conc', rough: 1.0 },
-  steel: { set: 'metal_plate', color: 0x9aa6ab, tile: 'steel', rough: 0.55 },
+  rusty: { set: 'rusty_metal', color: 0xc9a893, tile: 'rusty', rough: 0.55 },
+  iron: { set: 'corrugated_iron', color: 0xa8bcc0, tile: 'iron', rough: 0.5 },
+  deck: { set: 'metal_plate', color: 0x36484c, tile: 'deck', rough: 0.35 },
+  floor: { set: 'concrete', color: 0x4a4a44, tile: 'floor', rough: 0.2 },
+  conc: { set: 'concrete', color: 0x33342f, tile: 'conc', rough: 0.1 },
+  steel: { set: 'metal_plate', color: 0xb6c6cc, tile: 'steel', rough: 0.9 },
   // 头顶横梁：单独一个材质桶，因为**它不投影**。
   // 7m 高的横梁在 62° 高度角的阳光下会在甲板上投出 3~4m 宽的纯黑硬边，
   // 横跨整个玩法区，把画面切成一条条黑带。深水的散射光本来就没有硬阴影，
   // 所以直接不投影比调软更省事。
-  beams: { set: 'metal_plate', color: 0x6d7a7e, tile: 'steel', rough: 1.0, noShadow: true },
+  beams: { set: 'metal_plate', color: 0x5d6a6e, tile: 'steel', rough: 0.6, noShadow: true },
+  // 甲板拼板缝：单独一份，因为**它必须比甲板暗**。
+  // 用 iron（0xa8bcc0）的话缝比地板亮一大截，成了画面里最抢眼的东西，
+  // 视线全被这些网格线吸走，甲板上的道具反而看不见。
+  seam: { set: 'corrugated_iron', color: 0x1e2a2e, tile: 'iron', rough: 0.5 },
 };
 
 export function buildSceneFromDrawList(scene, world, assets, caustics) {
@@ -233,9 +241,12 @@ export function buildSceneFromDrawList(scene, world, assets, caustics) {
     if (!l) { l = { parts: partMatrices(proto), norm: normScale(proto), list: [], cast: d.kind !== 'lamp' }; propLists.set(key, l); }
     if (!l.parts.length) continue;
     // 归一化：把模型缩放到与它的碰撞盒一致。
-    // 不做的话会出现「碰撞 1.8m 的货架，模型却有 21m 高」——
-    // 玩家撞在一堵看不见的墙上，而且 21m 高的架子直接把摄像机包住。
-    const fit = d.foot ? l.norm * Math.min(d.foot[0] / l.norm[0], d.foot[1] / l.norm[1]) : 1;
+    // fit 必须是**标量**。早先写成 `l.norm * Math.min(...)` —— l.norm 是
+    // [宽,深] 向量，乘出来还是向量，喂给 _s.set(sc,sc,sc) 就变成 NaN，
+    // 整个实例矩阵全是 NaN，**一个道具都渲染不出来**（画面只剩甲板和潜水员）。
+    // 这个 bug 静默了很久：亮度检查、渲染截图、冒烟测试全过，
+    // 因为「没有道具」不会让这些检查失败 —— 是玩家发现的。
+    const fit = d.foot ? Math.min(d.foot[0] / l.norm[0], d.foot[1] / l.norm[1]) : 1;
     _e.set(0, d.rot || 0, 0);
     _q.setFromEuler(_e);
     _p.set(d.x, d.y, d.z);
@@ -247,7 +258,15 @@ export function buildSceneFromDrawList(scene, world, assets, caustics) {
 
   let instCalls = 0, instMeshes = 0;
   const batches = [];             // { mesh, x, z } 用于按距离剔除
+  // GLB 材质统一压进本作的调色板。
+  // Poly Haven 的贴图是给「地面以上」场景用的：集装箱是亮蓝的、工具箱是鲜黄的。
+  // 直接摆进深蓝绿的深海画面里，这些物件会像贴错了素材一样跳出来 ——
+  // 集装箱那个亮蓝尤其刺眼，整幅画面就它一个高饱和色。
+  // 做法是给每个材质叠一层轻微的冷调乘色，压掉饱和度但保留贴图明暗细节；
+  // 直接改成纯色不行，那样模型会变成一块塑料。
+  const seenMat = new WeakSet();
   for (const l of propLists.values()) {
+    for (const part of l.parts) tintPropMaterial(part.mat, seenMat);
     // GLB 是多 mesh 的 Scene，InstancedMesh 只吃单个 geometry+material，所以按部件分别实例化
     for (const part of l.parts) {
       const inst = new THREE.InstancedMesh(part.geo, part.mat, l.list.length);
@@ -340,6 +359,48 @@ function normScale(root) {
   const out = [Math.max(s.x, 1e-4), Math.max(s.z, 1e-4)];
   normCache.set(root, out);
   return out;
+}
+
+/**
+ * 把 GLB 材质压进深海调色板。
+ *
+ * 光靠 `color.multiply()` 是**压不掉饱和度**的：颜色是乘在贴图上的，
+ * 贴图本身是饱和蓝，乘出来还是饱和蓝，只是暗一点。集装箱在画面里
+ * 依然是整幅画唯一的高饱和色，看着就像贴错了素材。
+ *
+ * 所以额外注入一段 shader，把 albedo 往它的灰度值上拉：
+ *   mix(灰度, 原色, sat)，sat 越小越灰。
+ * 贴图的明暗细节（锈迹、污渍、条纹）全部保留，只有颜色被抽走。
+ */
+const PROP_TINT = new THREE.Color(0xb9c6c2);   // 冷灰绿
+// 保留 15% 饱和度。实测 0.32 还是「整幅画唯一的高饱和色」，
+// 0.0 画面统一但完全没材质区别了，0.15 是这两者之间能看的位置。
+const PROP_SAT = 0.15;
+function tintPropMaterial(mat, seen) {
+  if (!mat) return;
+  for (const m of Array.isArray(mat) ? mat : [mat]) {
+    if (!m || !m.color || seen.has(m)) continue;
+    seen.add(m);
+    m.color.multiply(PROP_TINT);
+    if (m.envMapIntensity !== undefined) m.envMapIntensity *= 0.55;
+    if (m.roughness !== undefined) m.roughness = Math.min(1, m.roughness + 0.12);
+    desaturateMaterial(m);
+  }
+}
+
+function desaturateMaterial(m) {
+  if (!m.isMeshStandardMaterial && !m.isMeshPhysicalMaterial) return;
+  const prev = m.onBeforeCompile;
+  m.onBeforeCompile = (shader) => {
+    if (prev) prev(shader);
+    shader.uniforms.uSat = m.userData.uSat;
+    shader.fragmentShader = 'uniform float uSat;\n' + shader.fragmentShader
+      // color_fragment 之后 albedo 已经乘上 color，正是要处理的值
+      .replace('#include <color_fragment>', `#include <color_fragment>
+  diffuseColor.rgb = mix(vec3(dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722))), diffuseColor.rgb, uSat);`);
+  };
+  m.userData.uSat = { value: PROP_SAT };
+  markPatched(m, 'desat');
 }
 
 /** 几何体顶点里有没有 NaN/Infinity */

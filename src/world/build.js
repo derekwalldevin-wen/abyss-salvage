@@ -228,24 +228,32 @@ export function buildWorld(o = {}) {
     jacket: 'life_jacket', med: 'medical_box', rock: 'moon_rock_02', rock2: 'rock_07',
     boulder: 'namaqualand_boulder_03', can: 'industrial_pastic_container', handtruck: 'hand_truck',
   };
-  // 各类道具的碰撞盒（世界米）
+  // 各类道具的碰撞盒（世界米）—— **渲染层按这个尺寸归一化模型**，所以这里
+  // 填的既是碰撞体也是「这东西看起来该多大」。
+  //
+  // 原来这些全是 1m 上下，于是 327 个一米见方的东西撒在 6.7 公顷的甲板上，
+  // 20m 镜头里只看得到两三个 —— 画面就是一块空板子。集装箱更是只有 0.9m 长，
+  // 「集装箱堆」里根本没有集装箱。这批数值按真实工业物件的尺寸重填：
+  // ISO 集装箱 6.1×2.44、气瓶架 6m、管路段 6m、岩石 3~4.5m。
   const PROPS = {
-    crate: [1.1, 1.1], milcrate: [1.4, 1.0], pcrate: [1.0, 0.9], can: [1.5, 1.0],
-    barrel: [0.8, 0.8], jerry: [0.5, 0.4], tank: [0.5, 0.5], toolbox: [0.9, 0.6],
-    shelf: [1.8, 0.7], chest: [1.1, 0.8], cart: [1.5, 0.9], gen: [1.6, 1.1],
-    comp: [1.4, 0.9], pipe: [4.0, 0.9], duct: [1.2, 1.2], bench: [1.8, 0.6],
-    rock: [2.2, 2.0], rock2: [1.8, 1.6], boulder: [2.8, 2.6], handtruck: [0.6, 0.5],
+    crate: [1.9, 1.9], milcrate: [2.4, 1.6], pcrate: [1.7, 1.4], can: [6.1, 2.5],
+    barrel: [1.0, 1.0], jerry: [0.7, 0.5], tank: [0.8, 0.8], toolbox: [1.4, 0.8],
+    shelf: [2.6, 0.9], chest: [1.5, 1.1], cart: [2.1, 1.2], gen: [2.6, 1.6],
+    comp: [2.9, 1.5], pipe: [6.0, 1.3], duct: [1.8, 1.8], bench: [2.4, 0.8],
+    rock: [3.2, 2.8], rock2: [2.6, 2.2], boulder: [4.6, 4.0], handtruck: [0.8, 0.6],
   };
-  const TALL_PROPS = new Set(['shelf', 'toolbox', 'chest', 'pipe', 'duct', 'gen', 'comp', 'facade']);
+  // 高个子道具：挡移动也挡视线，模型高度按这个类抬
+  const TALL_PROPS = new Set(['shelf', 'toolbox', 'chest', 'pipe', 'duct', 'gen', 'comp', 'bench', 'can']);
 
   function prop(kind, x, z, rot = 0, s = 1, mat = 'iron') {
     const [bw, bd] = PROPS[kind] || [1, 1];
     const swap = Math.abs(Math.round(rot / (Math.PI / 2))) % 2 === 1;
     const w = (swap ? bd : bw) * s, d = (swap ? bw : bd) * s;
-    // 门口余量 1.4m：门洞本身只有 5m 宽，扣掉 0.45m 的智能体半径再取整格之后
-    // 只剩 4 个可走格。道具哪怕不压住门，只要站在门口那 4 格边上，
-    // 门就等于被堵死（实测提高道具密度后 40 个种子里有 1 个门只剩 2 格）。
-    if (blocksDoorway(x - w / 2, z - d / 2, x + w / 2, z + d / 2, 1.4)) return false;
+    // 门口余量 2.6m。门洞本身只有 5m 宽，扣掉 0.45m 智能体半径再取整格后
+    // 只剩 4 个可走格。道具哪怕不压住门，只要站在门口那 4 格边上，门就等于
+    // 被堵死（实测把道具放大到真实尺寸后，40 个种子里有 1 个门只剩 0 格）。
+    // 余量必须大于最大道具的一半（管段/集装箱 6m），否则长条道具横过来就堵门。
+    if (blocksDoorway(x - w / 2, z - d / 2, x + w / 2, z + d / 2, 2.6)) return false;
     if (blocksKeepOut(x - w / 2, z - d / 2, x + w / 2, z + d / 2)) return false;
     const y = heightAt(x, z);
     add({ x0: x - w / 2, z0: z - d / 2, x1: x + w / 2, z1: z + d / 2, tall: TALL_PROPS.has(kind), y0: y, y1: y + (TALL_PROPS.has(kind) ? 2.2 : 1.1), prop: kind });
@@ -254,6 +262,32 @@ export function buildWorld(o = {}) {
     // 「撞一堵看不见的墙」和「21m 高的架子把摄像机包住」。
     draw.push({ kind: 'prop', model: MODELS[kind], x, y, z, rot, s, mat, foot: [w, d] });
     return true;
+  }
+
+  /**
+   * 区域专属道具。**区域辨识度靠这个**：
+   * 「集装箱堆」里必须看得到集装箱，「管廊」里必须有管段，否则玩家在固定
+   * 斜角镜头下看到的是一片绿油油的板子，完全猜不出自己在哪、该往哪走。
+   * 全随机会让每个区域长得一模一样 —— 那就等于没有地图。
+   */
+  function kindForZone(id, rng) {
+    switch (id) {
+      case 'boxes': return rng.f() < 0.55 ? 'can' : rng.pick(['crate', 'pcrate']);
+      case 'pipe': return rng.f() < 0.5 ? 'pipe' : rng.pick(['barrel', 'duct', 'toolbox']);
+      case 'derrick': return rng.f() < 0.45 ? 'pipe' : rng.pick(['crate', 'barrel', 'tank']);
+      case 'cargo': return rng.f() < 0.5 ? 'can' : rng.pick(['crate', 'shelf', 'barrel']);
+      case 'heli': return rng.f() < 0.5 ? 'crate' : rng.pick(['barrel', 'bench', 'jerry']);
+      case 'crane': return rng.f() < 0.5 ? 'crate' : rng.pick(['barrel', 'tank', 'can']);
+      case 'mess': return rng.f() < 0.6 ? 'bench' : rng.pick(['crate', 'pcrate', 'chest']);
+      case 'bunk': return rng.f() < 0.5 ? 'shelf' : rng.pick(['toolbox', 'crate', 'chest']);
+      case 'pump': return rng.f() < 0.5 ? 'comp' : rng.pick(['barrel', 'tank', 'duct', 'toolbox']);
+      case 'engine': return rng.f() < 0.5 ? 'gen' : rng.pick(['comp', 'cart', 'toolbox']);
+      case 'ballast': return rng.f() < 0.5 ? 'barrel' : rng.pick(['rock2', 'crate', 'boulder']);
+      case 'sealed': return rng.f() < 0.5 ? 'chest' : rng.pick(['crate', 'can', 'barrel']);
+      case 'winch': return rng.f() < 0.4 ? 'can' : rng.pick(['barrel', 'crate', 'boulder']);
+      case 'mud': return rng.f() < 0.6 ? 'boulder' : rng.pick(['rock', 'barrel', 'rock2']);
+      default: return null;
+    }
   }
 
   for (const zn of ZONES) {
@@ -267,7 +301,10 @@ export function buildWorld(o = {}) {
       const x = x0 + 2 + rng.f() * Math.max(1, w - 4);
       const z = z0 + 2 + rng.f() * Math.max(1, d - 4);
       let kind;
+      // 每个区域摆「符合它名字」的道具。随机抽会让「集装箱堆」里全是木箱，
+      // 玩家看到画面根本猜不出自己在哪 —— 区域辨识度是这个类型的命脉。
       if (natural) kind = rng.pick(['rock', 'rock2', 'boulder']);
+      else if (kindForZone(zn.id, rng)) kind = kindForZone(zn.id, rng);
       else if (zn.tags.includes('landmark')) kind = rng.pick(['barrel', 'jerry', 'tank', 'crate', 'bench']);
       else if (zn.tags.includes('cover')) kind = rng.pick(['crate', 'milcrate', 'pcrate', 'can', 'barrel', 'shelf']);
       else if (zn.tags.includes('room')) kind = rng.pick(['toolbox', 'cart', 'gen', 'comp', 'crate', 'shelf']);
@@ -355,13 +392,14 @@ export function buildWorld(o = {}) {
     }
     // 甲板拼板缝：每 12m 一道凸起长条。
     // 这是让「空旷甲板」有尺度感最便宜的办法 —— 观众的眼睛需要参照物，
-    // 没有参照物时 260m 的地板看起来和 12m 的一样大（参考作靠密集掩体解决，
-    // 但本作的玩法区域是自然海床，掩体不能铺满）。
+    // 没有参照物时 260m 的地板看起来和 12m 的一样大。
+    // 用专门的 seam 材质（比甲板暗）：用亮材质的话缝会变成画面里最抢眼的
+    // 网格线，视线全被吸走，甲板上的道具反而没人看。
     for (let x = -HALF + 6; x <= HALF - 6; x += 12) {
-      deck('seam', { x0: x - 0.16, x1: x + 0.16, z0: b.z0, z1: b.z1, y0: y, y1: y + 0.14, mat: 'iron' });
+      deck('seam', { x0: x - 0.16, x1: x + 0.16, z0: b.z0, z1: b.z1, y0: y, y1: y + 0.14, mat: 'seam' });
     }
     for (let z = b.z0 + 6; z <= b.z1 - 6; z += 12) {
-      deck('seam', { x0: -HALF, x1: HALF, z0: z - 0.16, z1: z + 0.16, y0: y, y1: y + 0.14, mat: 'iron' });
+      deck('seam', { x0: -HALF, x1: HALF, z0: z - 0.16, z1: z + 0.16, y0: y, y1: y + 0.14, mat: 'seam' });
     }
   }
   // 层间护栏：沿条带边界整条铺（坡道口留空），让「这里换层了」一眼可读
