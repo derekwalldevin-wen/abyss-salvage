@@ -8,20 +8,28 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 
-// 8 套贴图，每套 diff/nor/arm 三张
+/**
+ * 4 套贴图，每套 diff/nor/arm 三张。
+ * 原来声明了 8 套，另外 4 套（rock_ground / coral_gravel / wooden_planks /
+ * blue_painted_planks）world3d.js 的 MAT_MAP 从来没引用过 —— 纯白下载 1.3MB。
+ */
 export const TEX_SETS = [
   'rusty_metal', 'corrugated_iron', 'metal_plate', 'concrete',
-  'rock_ground', 'coral_gravel', 'wooden_planks', 'blue_painted_planks',
 ];
 
-// GLB 模型清单（与 tools 资产脚本一致）
+/**
+ * GLB 模型清单。**必须和 build.js 实际会摆放的模型完全一致** ——
+ * 多一个就是白下载（实测 9 个模型共 5.2MB 从未上场，其中 modular_factory_facade
+ * 一个就 2.4MB），少一个则那批道具静默消失。
+ * 改 build.js 的 MODELS 表之后，务必跑 `node tools/check-assets-weight.mjs`
+ * 看「下载了但永远不会被摆放」那一节是否为空。
+ */
 export const MODELS = [
-  'overhead_crane', 'dutch_ship_medium', 'dutch_ship_medium',
-  'modular_industrial_pipes_01', 'modular_airduct_circular_01', 'modular_factory_facade',
-  'rollershutter_door', 'ladder_sectioned_01', 'ocean_buoy', 'life_jacket',
-  'old_military_crate', 'wooden_crate_01', 'plastic_crate_01', 'industrial_pastic_container',
-  'metal_tool_chest', 'steel_frame_shelves_01', 'treasure_chest', 'medical_box',
-  'Barrel_01', 'Barrel_02', 'metal_jerrycan', 'propane_tank', 'oil_tin',
+  'overhead_crane',
+  'modular_industrial_pipes_01', 'modular_airduct_circular_01',
+    'wooden_crate_01', 'plastic_crate_01', 'industrial_pastic_container',
+  'metal_tool_chest', 'steel_frame_shelves_01', 'treasure_chest',
+  'Barrel_01', 'metal_jerrycan', 'propane_tank',
   'hanging_industrial_lamp', 'industrial_pipe_lamp', 'portable_searchlight', 'security_light',
   'tool_cart', 'old_military_compressor', 'portable_generator', 'hand_truck',
   'moon_rock_02', 'rock_07', 'namaqualand_boulder_03',
@@ -38,7 +46,8 @@ export async function loadAssets(renderer, onProgress) {
   const gl = new GLTFLoader(manager);
   const aniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
 
-  const total = TEX_SETS.length * 3 + MODELS.length + 2;
+  // 贴图套数×3 + 模型数。**不含 HDRI** —— 它后台加载，不占首屏进度
+  const total = TEX_SETS.length * 3 + MODELS.length;
   let done = 0;
   const tick = () => { done++; onProgress?.(Math.min(0.99, done / total)); };
 
@@ -74,19 +83,24 @@ export async function loadAssets(renderer, onProgress) {
     }
   });
 
-  // 水下环境光用海生馆 HDRI；内舱用洞穴 HDRI 备用
+  // 水下环境光用海生馆 HDRI。
+  // 原来还并行加载了一张洞穴 HDRI 当「内舱备用」，但 main.js 里从没读过
+  // env.cave —— 白下载 1.75MB，占首屏体积的 8%。删掉。
+  //
+  // 这张 1.65MB 的 HDR **不进关键路径**：它只影响环境反射（`scene.environment`），
+  // 少它一样能开局，画面差一点点但不差可玩性。所以不 await，
+  // 改成后台加载完再挂上去 —— 首屏少背 13% 的字节。
   const env = {};
-  for (const [key, file] of [['sea', 'ushaka_sea_world_aquarium'], ['cave', 'small_cave']]) {
+  const envReady = (async () => {
     try {
-      const d = await withRetry(() => new RGBELoader().loadAsync(`assets/hdri/${file}.hdr`));
+      const d = await withRetry(() => new RGBELoader().loadAsync('assets/hdri/ushaka_sea_world_aquarium.hdr'));
       const pmrem = new THREE.PMREMGenerator(renderer);
-      env[key] = pmrem.fromEquirectangular(d).texture;
+      env.sea = pmrem.fromEquirectangular(d).texture;
       d.dispose(); pmrem.dispose();
-      tick();
-    } catch (e) { console.warn('HDRI 加载失败', file, e.message); tick(); }
-  }
+    } catch (e) { console.warn('HDRI 加载失败', e.message); }
+  })();
 
-  return { tex, models, env, errs: { models: modelErrs } };
+  return { tex, models, env, envReady, errs: { models: modelErrs } };
 }
 
 // ---------------------------------------------------------------------------

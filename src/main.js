@@ -114,9 +114,15 @@ async function boot() {
 
   setTxt('正在加载资源…');
   const assets = await loadAssets(renderer, (p) => setBar(p * 0.78));
-  if (assets.env.sea && !OFF.has('env')) {
-    scene.environment = assets.env.sea;
-    scene.environmentIntensity = 0.55;
+  // HDRI 是后台加载的（1.65MB，占首屏 13%，但只影响环境反射）。
+  // 等它到位再挂上去，不要 await —— 玩家早几十秒能进游戏。
+  if (!OFF.has('env')) {
+    assets.envReady.then(() => {
+      if (assets.env.sea && !scene.environment) {
+        scene.environment = assets.env.sea;
+        scene.environmentIntensity = 0.55;
+      }
+    });
   }
   if (OFF.has('fog')) { scene.fog = null; scene.background = new THREE.Color(0x101010); }
   if (OFF.has('shadow')) { renderer.shadowMap.enabled = false; sun.castShadow = false; }

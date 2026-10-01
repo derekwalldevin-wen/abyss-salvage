@@ -211,7 +211,9 @@ export function buildWorld(o = {}) {
       // 碎石落进门里就等于把门堵死（实测封死了泵房的西门）。
       if (blocksDoorway(rx - 0.6, rz - 0.6, rx + 0.6, rz + 0.6)) continue;
       add({ x0: rx - 0.6, z0: rz - 0.6, x1: rx + 0.6, z1: rz + 0.6, tall: false, y0: y, y1: y + 0.9 });
-      draw.push({ kind: 'rubble', x: rx, z: rz, y, s: 0.7 + rng.f() * 0.5, rot: rng.f() * 6.28, foot: [1.2, 1.2] });
+      // rubble 必须带 model —— 渲染层只认 model 字段，缺了会被
+      // `assets.models[undefined]` 静默跳过，破洞周围的碎石就一个都画不出来。
+      draw.push({ kind: 'rubble', model: 'rock_07', x: rx, z: rz, y, s: 0.7 + rng.f() * 0.5, rot: rng.f() * 6.28, foot: [1.6, 1.6] });
     }
   }
 
@@ -223,9 +225,13 @@ export function buildWorld(o = {}) {
     gen: 'portable_generator', comp: 'old_military_compressor', pipe: 'modular_industrial_pipes_01',
     duct: 'modular_airduct_circular_01', lamp: 'hanging_industrial_lamp', plamp: 'industrial_pipe_lamp',
     search: 'portable_searchlight', slamp: 'security_light', crane: 'overhead_crane',
-    wreck: 'dutch_ship_medium', buoy: 'ocean_buoy', ladder: 'ladder_sectioned_01',
-    door: 'rollershutter_door', facade: 'modular_factory_facade', bench: 'painted_wooden_bench',
-    jacket: 'life_jacket', med: 'medical_box', rock: 'moon_rock_02', rock2: 'rock_07',
+    // 这几个键对应的 GLB **从来没下载成功过**，也从来没人被摆出去：
+// painted_wooden_bench / rollershutter_door / modular_factory_facade /
+// dutch_ship_medium / ocean_buoy / life_jacket / medical_box / old_military_crate。
+// 声明在 MODELS 里但磁盘上没有 → 加载报 404 → 渲染层拿到 undefined 静默跳过，
+// 于是那些道具「凭空消失」而没有任何报错。已全部移除。
+// 加新道具前先跑 `node tools/check-assets-weight.mjs`，它会列出「下载了但从没摆出来」的。
+    rock: 'moon_rock_02', rock2: 'rock_07',
     boulder: 'namaqualand_boulder_03', can: 'industrial_pastic_container', handtruck: 'hand_truck',
   };
   // 各类道具的碰撞盒（世界米）—— **渲染层按这个尺寸归一化模型**，所以这里
@@ -239,11 +245,11 @@ export function buildWorld(o = {}) {
     crate: [1.9, 1.9], milcrate: [2.4, 1.6], pcrate: [1.7, 1.4], can: [6.1, 2.5],
     barrel: [1.0, 1.0], jerry: [0.7, 0.5], tank: [0.8, 0.8], toolbox: [1.4, 0.8],
     shelf: [2.6, 0.9], chest: [1.5, 1.1], cart: [2.1, 1.2], gen: [2.6, 1.6],
-    comp: [2.9, 1.5], pipe: [6.0, 1.3], duct: [1.8, 1.8], bench: [2.4, 0.8],
+    comp: [2.9, 1.5], pipe: [6.0, 1.3], duct: [1.8, 1.8], 
     rock: [3.2, 2.8], rock2: [2.6, 2.2], boulder: [4.6, 4.0], handtruck: [0.8, 0.6],
   };
   // 高个子道具：挡移动也挡视线，模型高度按这个类抬
-  const TALL_PROPS = new Set(['shelf', 'toolbox', 'chest', 'pipe', 'duct', 'gen', 'comp', 'bench', 'can']);
+  const TALL_PROPS = new Set(['shelf', 'toolbox', 'chest', 'pipe', 'duct', 'gen', 'comp', 'can']);
 
   /** 某类道具碰撞盒的最长边（米） */
   const maxDim = (kind) => Math.max(...(PROPS[kind] || [1, 1]));
@@ -279,9 +285,9 @@ export function buildWorld(o = {}) {
       case 'pipe': return rng.f() < 0.5 ? 'pipe' : rng.pick(['barrel', 'duct', 'toolbox']);
       case 'derrick': return rng.f() < 0.45 ? 'pipe' : rng.pick(['crate', 'barrel', 'tank']);
       case 'cargo': return rng.f() < 0.5 ? 'can' : rng.pick(['crate', 'shelf', 'barrel']);
-      case 'heli': return rng.f() < 0.5 ? 'crate' : rng.pick(['barrel', 'bench', 'jerry']);
+      case 'heli': return rng.f() < 0.5 ? 'crate' : rng.pick(['barrel', 'crate', 'jerry']);
       case 'crane': return rng.f() < 0.5 ? 'crate' : rng.pick(['barrel', 'tank', 'can']);
-      case 'mess': return rng.f() < 0.6 ? 'bench' : rng.pick(['crate', 'pcrate', 'chest']);
+      case 'mess': return rng.f() < 0.6 ? 'pcrate' : rng.pick(['crate', 'pcrate', 'chest']);
       case 'bunk': return rng.f() < 0.5 ? 'shelf' : rng.pick(['toolbox', 'crate', 'chest']);
       case 'pump': return rng.f() < 0.5 ? 'comp' : rng.pick(['barrel', 'tank', 'duct', 'toolbox']);
       case 'engine': return rng.f() < 0.5 ? 'gen' : rng.pick(['comp', 'cart', 'toolbox']);
@@ -321,7 +327,7 @@ export function buildWorld(o = {}) {
       // 玩家看到画面根本猜不出自己在哪 —— 区域辨识度是这个类型的命脉。
       if (natural) kind = rng.pick(['rock', 'rock2', 'boulder']);
       else if (kindForZone(zn.id, rng)) kind = kindForZone(zn.id, rng);
-      else if (zn.tags.includes('landmark')) kind = rng.pick(['barrel', 'jerry', 'tank', 'crate', 'bench']);
+      else if (zn.tags.includes('landmark')) kind = rng.pick(['barrel', 'jerry', 'tank', 'crate', 'pcrate']);
       else if (zn.tags.includes('cover')) kind = rng.pick(['crate', 'milcrate', 'pcrate', 'can', 'barrel', 'shelf']);
       else if (zn.tags.includes('room')) kind = rng.pick(['toolbox', 'cart', 'gen', 'comp', 'crate', 'shelf']);
       else kind = rng.pick(['crate', 'pcrate', 'barrel', 'handtruck', 'can']);
@@ -356,10 +362,10 @@ export function buildWorld(o = {}) {
     }
   }
 
-  // 竖梯：视觉上提示层间连接（不做攀爬机制）
-  for (const r of RAMPS) {
-    prop('ladder', (r.x0 + r.x1) / 2, r.z0 + 1, 0, 1);
-  }
+  // 竖梯：视觉上提示层间连接（不做攀爬机制）。
+  // 注意：梯子摆在坡道口上，而坡道口在 blocksDoorway 的排除范围内，
+  // 所以这些梯子**从来没有真正摆出来过**（实测 draw list 里 0 个）。
+  // 不再声明这个模型，省 308KB。
 
   // ---- 8. 减压舱（坐标在第 9 步统一解析；这里只出绘制指令）----------------
   // 减压舱**不生成碰撞体**。早先给它加了个 2.4m 的矮碰撞体，
