@@ -11,6 +11,11 @@ import { heightAt, HALF } from '../world/layout.js';
 
 const $ = (id) => document.getElementById(id);
 
+// 氧气条上那道加压阈值刻度的位置（%）。
+// catalog 里 O2_DEPTH_START 是绝对秒数不是比例，所以这里给一个经验值：
+// 标出「到这个位置就开始额外掉氧」，让玩家知道自己的余量在哪。
+const O2_DEPTH_TICK = 34;
+
 export class Hud {
   constructor() {
     this.el = {
@@ -67,8 +72,10 @@ export class Hud {
     this._text('o2n', this.el.o2num, String(Math.ceil(s.o2)));
     const low = s.o2 / s.o2Max < 0.25;
     this._set('o2low', this.el.o2wrap, 'className', 'o2wrap' + (low ? ' low' : ''));
-    // 深度加压阈值刻度：O2_DEPTH_START 之前不额外消耗，过了就开始掉
-    this._w('o2mark', this.el.o2mark, 26);
+    // 深度加压阈值刻度：这条竖线本身是 1px，位置靠 left 控制。
+    // 之前误用了 _w()（它设的是 width），把 1px 的刻度线撑成了 26% 宽的灰块，
+    // 在氧气条上看着像一段加载进度。现在单独写 left。
+    this._set('o2mark', this.el.o2mark, 'style', `left:${O2_DEPTH_TICK}%`);
 
     // 生命 / 体力
     this._w('hp', this.el.hpb, s.hp);

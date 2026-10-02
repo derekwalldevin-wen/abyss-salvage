@@ -1,4 +1,4 @@
-﻿/* 深渊打捞 · HUD 样式。配色取自水下：深青底 + 铜金强调 + 荧光青。 */
+/* 濞ｈ鲸绗傞幍鎾村船 璺?HUD 閺嶅嘲绱￠妴鍌炲帳閼规彃褰囬懛顏呮寜娑撳绱板ǎ閬嶆綒鎼?+ 闁炬粓鍣惧楦跨殶 + 閼窖冨帨闂堟帇鈧?*/
 :root {
   --bg: #0d2b33;
   --panel: rgba(6, 20, 26, 0.78);
@@ -31,7 +31,7 @@ html, body {
 
 .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 
-/* ---------------- 加载层 ---------------- */
+/* ---------------- 閸旂姾娴囩仦?---------------- */
 #loading {
   position: fixed; inset: 0; z-index: 50;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -47,7 +47,7 @@ html, body {
 .bootfail { text-align: center; color: var(--red); max-width: 520px; padding: 20px; }
 .bootfail b { display: block; font-size: 20px; margin-bottom: 8px; }
 
-/* ---------------- HUD 通用 ---------------- */
+/* ---------------- HUD 闁氨鏁?---------------- */
 #hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
 #hud[hidden] { display: none; }
 body.in-raid #hud { display: block; }
@@ -68,7 +68,7 @@ body.in-raid #hud { display: block; }
 #timer { color: var(--cyan); font-weight: 700; font-size: 15px; }
 #depthChip b { color: var(--gold); }
 
-/* ---------------- 氧气（核心 HUD） ---------------- */
+/* ---------------- 濮樠勭毜閿涘牊鐗宠箛?HUD閿?---------------- */
 .o2wrap {
   position: absolute; top: 58px; left: 50%; transform: translateX(-50%);
   display: flex; align-items: center; gap: 8px;
@@ -82,26 +82,19 @@ body.in-raid #hud { display: block; }
 #o2fill { height: 100%; width: 100%; background: linear-gradient(90deg, #2b8f9c, var(--cyan)); transition: width 0.12s linear; }
 #o2mark { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(255, 255, 255, 0.5); left: 35%; }
 .o2num { font-size: 12px; color: var(--cyan); min-width: 30px; }
-.o2wrap.low #o2fill { background: linear-gradient(90deg, #a33, var(--red)); }
 .o2wrap.low .o2num { color: var(--red); }
 
-/* ---------------- 生命/护具/体力 ---------------- */
-.vitals { position: absolute; left: 14px; bottom: 14px; width: 240px; }
-.vrow { display: flex; align-items: center; gap: 7px; margin-top: 5px; font-size: 11px; color: var(--muted); }
-.vrow > span { width: 44px; flex: none; }
-.vrow b { width: 46px; text-align: right; color: var(--text); font-size: 11px; }
+/* ---------------- 閻㈢喎鎳?閹躲倕鍙?娴ｆ挸濮?---------------- */
 .vbar { flex: 1; height: 8px; background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 2px; overflow: hidden; }
 .vbar i { display: block; height: 100%; width: 100%; transition: width 0.15s; }
 .vbar.hp i { background: var(--hp); }
 .vbar.ar i { background: var(--armor); }
 .vbar.hl i { background: var(--helm); }
 .vbar.st i { background: var(--stam); }
-.cons { display: flex; gap: 12px; margin-top: 8px; font-size: 12px; color: var(--muted); }
 .con b { display: inline-block; min-width: 16px; text-align: center; background: rgba(255, 255, 255, 0.1); border-radius: 2px; color: var(--text); font-size: 10px; margin-right: 3px; }
 .con i { font-style: normal; color: var(--text); }
 
-/* ---------------- 武器 ---------------- */
-.weapon { position: absolute; right: 16px; bottom: 14px; text-align: right; }
+/* ---------------- 濮濓箑娅?---------------- */
 .wname { font-size: 14px; color: var(--text); }
 .wammo { font-size: 34px; font-weight: 800; line-height: 1; margin-top: 2px; }
 .wammo b { color: var(--cyan); }
@@ -114,7 +107,7 @@ body.in-raid #hud { display: block; }
 .wreload { height: 3px; background: rgba(255, 255, 255, 0.12); margin-top: 5px; width: 90px; margin-left: auto; }
 .wreload i { display: block; height: 100%; background: var(--gold); width: 0; }
 
-/* ---------------- 提示 / 撤离 / 事件流 ---------------- */
+/* ---------------- 閹绘劗銇?/ 閹俱倗顬?/ 娴滃娆㈠ù?---------------- */
 .prompt {
   position: absolute; left: 50%; bottom: 26%; transform: translateX(-50%);
   background: var(--panel); border: 1px solid var(--line); border-radius: 3px;
@@ -134,20 +127,18 @@ body.in-raid #hud { display: block; }
   position: absolute; top: 88px; left: 50%; transform: translateX(-50%);
   color: var(--red); font-size: 13px; text-shadow: 0 2px 8px #000;
 }
-.feed { position: absolute; right: 16px; top: 90px; text-align: right; font-size: 12px; color: var(--muted); }
 .feed div { margin-top: 3px; }
 .feed .fitem { margin-top: 3px; transition: opacity .2s linear; }
 .feed .good { color: var(--cyan); }
 .feed .bad { color: var(--red); }
 .feed .gold { color: var(--gold); }
-/* 空槽位：武器栏里没装东西的那一格要看得出来 */
-.ws.off { opacity: .3; }
-/* 氧气告急：低于 25% 时整条气瓶变红并轻微脉动 */
+/* 缁岀儤蝎娴ｅ稄绱板锕€娅掗弽蹇涘櫡濞屄ゎ棅娑撴粏銈块惃鍕亝娑撯偓閺嶈壈顩﹂惇瀣繁閸戠儤娼?*/
+/* 濮樠勭毜閸涘﹥鈧儻绱版担搴濈艾 25% 閺冭埖鏆ｉ弶鈩冪毜閻¤泛褰夌痪銏犺嫙鏉炶浜曢懘澶婂З */
 .o2wrap.low #o2fill { background: linear-gradient(90deg, #ff6b5a, #ffb938); }
 .o2wrap.low .o2label, .o2wrap.low .o2num { color: #ff6b5a; }
 .o2wrap.low { animation: o2pulse 1.1s ease-in-out infinite; }
 @keyframes o2pulse { 0%,100% { opacity: 1; } 50% { opacity: .62; } }
-/* 被多名敌人发现 */
+/* 鐞氼偄顦块崥宥嗘櫕娴滃搫褰傞悳?*/
 .threat.bad b { color: var(--red); }
 
 #minimap {
@@ -156,7 +147,7 @@ body.in-raid #hud { display: block; }
   border: 1px solid var(--line); background: rgba(6, 20, 26, 0.72);
 }
 
-/* 移动端：压缩 HUD */
+/* 缁夎濮╃粩顖ょ窗閸樺缂?HUD */
 @media (max-width: 760px) {
   .vitals { width: 170px; }
   .wammo { font-size: 26px; }
@@ -164,16 +155,95 @@ body.in-raid #hud { display: block; }
   .ld-brand { font-size: 32px; letter-spacing: 4px; }
 }
 
-/* `[hidden]` 在浏览器默认样式里只是 `display: none`，特异性极低。
-   任何作者写的 `display: flex/block/grid` 都会**压过**它 ——
-   于是 `el.hidden = true` 看着生效了，元素却还在屏幕上。
-   踩过：#settle { display: flex } 让撤离结算面板一进游戏就盖住整个画面，
-   显示一堆 0，玩家根本进不去游戏。`el.hidden = true` 还返回 true，
-   查 DOM 会说「隐藏了」，肉眼看却是显示的，最难查。
-   这条兜底规则让 hidden 属性在任何 display 下都真的生效。 */
+/* `[hidden]` 閸︺劍绁荤憴鍫濇珤姒涙顓婚弽宄扮础闁插苯褰ч弰?`display: none`閿涘瞼澹掑鍌涒偓褎鐎担搴涒偓?
+   娴犺缍嶆担婊嗏偓鍛晸閻?`display: flex/block/grid` 闁垝绱?*閸樺绻?*鐎?閳ユ柡鈧?
+   娴滃孩妲?`el.hidden = true` 閻娼冮悽鐔告櫏娴滃棴绱濋崗鍐閸楃绻曢崷銊ョ潌楠炴洑绗傞妴?
+   闊晞绻冮敍?settle { display: flex } 鐠佲晜鎸欑粋鑽ょ波缁犳娼伴弶澶哥鏉╂稒鐖堕幋蹇撴皑閻╂牔缍囬弫缈犻嚋閻㈠娼伴敍?
+   閺勫墽銇氭稉鈧崼?0閿涘瞼甯虹€硅埖鐗撮張顒冪箻娑撳秴骞撳〒鍛婂灆閵嗕繖el.hidden = true` 鏉╂绻戦崶?true閿?
+   閺?DOM 娴兼俺顕╅妴宀勬閽樺繋绨￠妴宥忕礉閼插婧傞惇瀣祱閺勵垱妯夌粈铏规畱閿涘本娓堕梾鐐叀閵?
+   鏉╂瑦娼崗婊冪俺鐟欏嫬鍨拋?hidden 鐏炵偞鈧冩躬娴犺缍?display 娑撳鍏橀惇鐔烘畱閻㈢喐鏅ラ妴?*/
 [hidden] { display: none !important; }
 
-/* ---------------- 撤离结算 ---------------- */
+/* ================================================================
+   HUD 閸欘垵顕伴幀褔鍣搁崑?
+   娑斿澧犻幍鈧張?HUD 閸忓啰绀岄柈鑺ユЦ閵嗗矁锛橀弬鍥х摟閻╁瓨甯撮崢瀣躬 3D 閻㈠娼版稉濞库偓宥忕礉閼板本鏋冪€涙澹婇弰?
+   閸嬪繑娈惃鍕紗閽冩繐绱?-muted閿涘鈧倻鏁抽弶澶哥娴滎噯绱濋弽鍥╊劮鐏忚鲸鏆ｉ悧鍥ㄧХ婢?閳ユ柡鈧?鐎圭偞绁?1440鑴?00 娑?
+   閵嗗瞼鏁撻崨?/ 濞兼粍鎸夐張?/ 婢跺娲?/ 娴ｆ挸濮忛妴宥呭殤娑斿氦顕版稉宥呭毉閺夈儯鈧?
+   鏉╂瑦顐奸惃鍕瑏閺夆剝鏁奸崝顭掔窗
+     1. 濮ｅ繋閲滈棃銏℃緲閸旂姳绔寸仦鍌涚€ǎ锛勬畱鎼存洘婢橀敍鍫滅瑝閺勵垰鐤勮箛鍐ㄥ幢閻楀浄绱濋弰顖涚瑤閸欐﹢浼勭純鈺嬬礆閿涘奔绻氱拠浣锋崲娴ｆ洝鍎楅弲顖欑瑓闁€熷厴鐠?
+     2. 閺佹澘鈧偐鏁ょ粵澶婎啍 + 妤傛ê顕В鏃撶礉閺嶅洨顒烽幓鎰瘨
+     3. 娣囶喗甯€娴滃娆㈠ù浣告嫲鐏忓繐婀撮崶鍓ф畱闁插秴褰旈敍鍫ｎ潌娑撳绱?
+   ================================================================ */
+
+/* 鎼存洟鍎存稉銈呮健闂堛垺婢橀惃鍕埠娑撯偓鎼存洘婢橀敍姘涧閸︺劑娼潏褰掑亝娑撯偓娓氀冨濞ｆ唻绱濇稉顓㈡？闁繐鍤崢?*/
+.vitals, .weapon {
+  padding: 9px 11px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, rgba(6, 20, 26, .0), rgba(6, 20, 26, .62));
+}
+.vitals { position: absolute; left: 16px; bottom: 16px; width: 252px; }
+.weapon { position: absolute; right: 16px; bottom: 16px; text-align: right; min-width: 132px; }
+
+.vrow { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 11px; }
+/* 閺嶅洨顒烽崢鐔告降閻?--muted閿涘苯甯囬崷銊ゅ瘨閻㈠弶婢樻稉濠傜暚閸忋劍绉锋径渚库偓鍌涘絹娴滎喕绔村锝冣偓?*/
+.vrow > span {
+  width: 64px; flex: none; color: #a8c6cc;
+  /* 「二级 夹克潜水服」这类名字必须截断，不能折行 ——
+     折成两行会把整块 vitals 撑高、条形图错位，看起来像渲染坏了。
+     完整名字在营地的配装界面里，这里只当标识用。 */
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.vrow b { width: 48px; text-align: right; color: #eaf6f8; font-size: 11.5px; }
+.vbar { flex: 1; height: 7px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 2px; overflow: hidden; }
+.vbar i { display: block; height: 100%; width: 100%; transition: width 0.15s; }
+
+.cons { display: flex; gap: 14px; margin-top: 9px; padding-top: 7px; border-top: 1px solid var(--line); font-size: 11.5px; color: #a8c6cc; }
+.con b { display: inline-block; min-width: 17px; text-align: center; background: rgba(255, 255, 255, 0.12); border-radius: 2px; color: #eaf6f8; font-size: 10px; margin-right: 4px; }
+.con i { font-style: normal; color: #eaf6f8; }
+
+/* 妞ゅ爼鍎撮悩鑸碘偓浣规蒋閿涙艾濮炲ǎ鍗炵俺閺夊尅绱濋崥锕€鍨崷銊︾ガ閼硅尙鏁抽弶澶哥瑐閻ц棄鐡ч惂钘夌俺缁﹥鍨氭稉鈧悧?*/
+.top { top: 12px; }
+.top .chip { box-shadow: 0 2px 12px rgba(0, 0, 0, .5); }
+
+/* 濮樠勭毜閺夆槄绱扮紒娆忕俺閺夊尅绱濇稉宥囧姧缂佸棝鏆辨稉鈧弶鈥冲竾閸︺劋鎹㈡担鏇″剹閺咁垯绗傞柈鐣屾箙娑撳秵绔?*/
+.o2wrap {
+  padding: 5px 10px; border-radius: 3px;
+  background: rgba(6, 20, 26, .55);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, .45);
+}
+
+/* 濮濓箑娅掑Σ鏂ょ窗閺堫亣顥婃径鍥╂畱闁絼绔村锝呭斧閺?opacity .3閿涘苯鍤戞稊搴ｆ箙娑撳秷顫嗛敍灞藉瀻娑撳秵绔婚妴灞炬箒/濞屸剝婀侀妴?*/
+.ws { padding: 2px 8px; font-size: 11px; }
+.ws.off { opacity: .42; border-style: dashed; }
+.ws:not(.on):not(.off) { color: #cfe9ef; border-color: rgba(120, 200, 210, .5); }
+
+.wammo { text-shadow: 0 2px 10px rgba(0, 0, 0, .6); }
+
+/**
+ * 娴滃娆㈠ù浣稿斧閺?top:90 right:16閿涘矁鈧苯鐨崷鏉挎禈閺?top:14 right:14 鐏忓搫顕?168閵?
+ * 娑旂喎姘ㄩ弰顖濐嚛娴滃娆㈠ù?*閺佺繝閲滈拃钘夋躬鐏忓繐婀撮崶鍓ф畱閸﹀棗鑸伴懠鍐ㄦ纯閸?*閿涘澒 90~109 閳?14~182閿涘绱?
+ * 濮ｅ繋绔寸悰灞惧絹缁€娲厴鐞氼偄甯囬崷銊ユ勾閸ュ彞绗傞妴鍌涙暭閹存劖瀵曢崷銊ョ毈閸︽澘娴樻稉瀣桨閵?
+ */
+.feed { position: absolute; right: 16px; top: 190px; text-align: right; font-size: 12px; }
+.feed .fitem { margin-top: 3px; transition: opacity .2s linear; text-shadow: 0 1px 6px rgba(0, 0, 0, .9); }
+
+/* 婵炰浇鍎婇幓鎰仛閿涙艾甯弶銉ユ嫲濮樠勭毜閺夛繝鍏橀幐銈呮躬娑擃叀閰遍敍灞惧搥濮樻柨鎲￠幀銉︽娑撱倛顢戠痪銏犵摟閸欑姴婀稉鈧挧?*/
+.threat { text-shadow: 0 2px 8px #000, 0 0 14px rgba(255, 90, 77, .5); }
+
+/* 閹俱倗顬囨潻娑樺閺夆槄绱扮仦鍛厬婢堆傛閿涘苯绻€妞よ甯囬崷銊ゆ崲娴ｆ洝鍎楅弲顖欑瑐闁姤绔诲Δ?*/
+.extract { width: 340px; padding: 10px 14px; border-radius: 3px; background: rgba(6, 20, 26, .74); border: 1px solid var(--line); }
+.prompt { box-shadow: 0 3px 16px rgba(0, 0, 0, .55); }
+
+/* 鐏忓繐鐫嗛崗婊冪俺閿涙氨鐝仦蹇斿灗閻喚鐛ラ崣锝勭瑓閿涘苯绨抽柈銊よ⒈閸фぞ绗夐懗鍊燁潶鐟欏棗褰涢崚鍥ㄥ竴 */
+@media (max-height: 620px) {
+  .vitals { width: 210px; }
+  .vrow { margin-top: 4px; }
+  .cons { margin-top: 6px; padding-top: 5px; }
+  #minimap { width: 128px; height: 128px; }
+  .feed { top: 150px; }
+}
+
+/* ---------------- 閹俱倗顬囩紒鎾剁暬 ---------------- */
 #settle {
   position: fixed; inset: 0; z-index: 40;
   display: flex; align-items: center; justify-content: center;
@@ -213,7 +283,7 @@ body.in-raid #hud { display: block; }
   padding-bottom: 5px; margin-bottom: 6px; border-bottom: 1px solid var(--line);
 }
 
-/* 物资清单：左侧色条按稀有度取色，和 HUD 事件流用同一套颜色 */
+/* 閻椻晞绁〒鍛礋閿涙艾涔忔笟褑澹婇弶鈩冨瘻缁嬧偓閺堝瀹抽崣鏍閿涘苯鎷?HUD 娴滃娆㈠ù浣烘暏閸氬奔绔存總妤咁杹閼?*/
 .se-hrow {
   display: grid; grid-template-columns: 20px 1fr auto 78px;
   align-items: center; gap: 7px;
@@ -274,13 +344,13 @@ body.in-raid #hud { display: block; }
 .se-btn.ghost { background: transparent; color: var(--muted); border-color: var(--line); }
 .se-btn.ghost:hover { color: var(--text); border-color: var(--muted); }
 
-/* 结算时把 HUD 淡出，否则两层信息叠在一起看不清。
-   注意用 body.settling 而不是 body.in-raid：
-   onRaidEnd 是**先**移除 in-raid **再**显示结算面板，所以用 in-raid 会正好写反 ——
-   对局中 HUD 全透明（看不见血量氧气），结算时 HUD 反而是亮的。踩过。 */
+/* 缂佹挾鐣婚弮鑸靛Ω HUD 濞ｂ€冲毉閿涘苯鎯侀崚娆庤⒈鐏炲倷淇婇幁顖氬綌閸︺劋绔寸挧椋庢箙娑撳秵绔婚妴?
+   濞夈劍鍓伴悽?body.settling 閼板奔绗夐弰?body.in-raid閿?
+   onRaidEnd 閺?*閸?*缁夊娅?in-raid **閸?*閺勫墽銇氱紒鎾剁暬闂堛垺婢橀敍灞惧娴犮儳鏁?in-raid 娴兼碍顒滄總钘夊晸閸?閳ユ柡鈧?
+   鐎电懓鐪稉?HUD 閸忋劑鈧繑妲戦敍鍫㈡箙娑撳秷顫嗙悰鈧柌蹇斿搥濮樻棑绱氶敍宀€绮ㄧ粻妤佹 HUD 閸欏秷鈧本妲告禍顔炬畱閵嗗倽淇潻鍥モ偓?*/
 body.settling #hud { opacity: 0; pointer-events: none; transition: opacity .18s; }
 
-/* ---------------- 营地 ---------------- */
+/* ---------------- 閽€銉ユ勾 ---------------- */
 #camp {
   position: fixed; inset: 0; z-index: 30;
   display: flex; align-items: center; justify-content: center;
@@ -290,7 +360,7 @@ body.settling #hud { opacity: 0; pointer-events: none; transition: opacity .18s;
 .cp-card {
   width: min(1080px, calc(100vw - 32px));
   max-height: calc(100vh - 28px);
-  overflow-y: auto;                 /* 选项再多也不能把页面撑出视口 */
+  overflow-y: auto;                 /* 闁銆嶉崘宥咁樋娑旂喍绗夐懗鑺ュΩ妞ょ敻娼伴幘鎴濆毉鐟欏棗褰?*/
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 3px;
@@ -313,7 +383,7 @@ body.settling #hud { opacity: 0; pointer-events: none; transition: opacity .18s;
 .cp-col .cp-sect:not(:first-child) { margin-top: 9px; }
 
 .cp-list { display: flex; flex-direction: column; gap: 2px; }
-/* 一行放下：名称 · 副信息 · 价格。原来是两行，16 个选项直接撑出视口。 */
+/* 娑撯偓鐞涘本鏂佹稉瀣剁窗閸氬秶袨 璺?閸擃垯淇婇幁?璺?娴犻攱鐗搁妴鍌氬斧閺夈儲妲告稉銈堫攽閿?6 娑擃亪鈧銆嶉惄瀛樺复閹炬垵鍤憴鍡楀經閵?*/
 .cp-opt {
   display: grid; grid-template-columns: auto 1fr auto;
   align-items: baseline; gap: 7px;
