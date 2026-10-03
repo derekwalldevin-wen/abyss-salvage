@@ -144,22 +144,27 @@
           <div class="se-st"><b id="seScale">×1.00</b><span>深度系数</span></div>
         </div>
 
-        <div class="se-sec" id="seHaulSec">
-          <div class="se-sect">舱内物资</div>
-          <div class="se-haul" id="seHaul"></div>
+        <!-- 中间这段是唯一可滚的部分。物资/明细条数不定，卡片高度必须固定，
+             否则一局背满东西就把「余额」和「再来一局」顶出视口（实测 1280×720 下按钮落在 887px）。 -->
+        <div class="se-scroll">
+          <div class="se-sec" id="seHaulSec">
+            <div class="se-sect">舱内物资</div>
+            <div class="se-haul" id="seHaul"></div>
+          </div>
+
+          <div class="se-sec">
+            <div class="se-sect">结算明细</div>
+            <div class="se-ledger" id="seLedger"></div>
+          </div>
+
+          <div class="se-career" id="seCareer"></div>
         </div>
 
-        <div class="se-sec">
-          <div class="se-sect">结算明细</div>
-          <div class="se-ledger" id="seLedger"></div>
-        </div>
-
+        <!-- 余额和按钮永远不滚走：这是玩家结算时唯二要看的东西 -->
         <div class="se-total">
           <div class="se-tr"><span>本局净收支</span><b id="seNet">0</b></div>
           <div class="se-tr big"><span>余额</span><b id="seMoney">0</b></div>
         </div>
-
-        <div class="se-career" id="seCareer"></div>
 
         <div class="se-btns">
           <button class="se-btn" id="seAgain">再来一局 <i>H</i></button>

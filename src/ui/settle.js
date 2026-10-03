@@ -29,6 +29,7 @@ export class Settle {
       out: $('seOut'), via: $('seVia'),
       depth: $('seDepth'), kills: $('seKills'), time: $('seTime'), scale: $('seScale'),
       haulSec: $('seHaulSec'), haul: $('seHaul'),
+      scroll: document.querySelector('.se-scroll'),
       ledger: $('seLedger'),
       net: $('seNet'), money: $('seMoney'),
       career: $('seCareer'),
@@ -102,6 +103,19 @@ export class Settle {
 
     e.root.hidden = false;
     document.body.classList.add('settling');
+
+    // 可滚区域加 .more → 底部渐隐，告诉玩家下面还有东西。
+    // 必须在 unhide 之后量：元素还 display:none 时 clientHeight 恒为 0，
+    // 判出来的结果永远是「不需要提示」。
+    for (const el of [e.haul, this.el.scroll]) {
+      if (!el) continue;
+      el.classList.toggle('more', el.scrollHeight > el.clientHeight + 2);
+      // 滚到底之后渐隐就没意义了（下面确实没东西了），去掉
+      el.addEventListener('scroll', () => {
+        const atEnd = el.scrollTop + el.clientHeight >= el.scrollHeight - 2;
+        el.classList.toggle('more', !atEnd && el.scrollHeight > el.clientHeight + 2);
+      }, { passive: true });
+    }
   }
 
   renderHaul(raid, res) {

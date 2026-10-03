@@ -253,15 +253,45 @@ body.in-raid #hud { display: block; }
 }
 @keyframes seIn { from { opacity: 0; } to { opacity: 1; } }
 
+/* 结算卡片：整体不滚动，只让「物资列表」滚动，按钮永远钉在底部。
+   之前整张卡滚动，实测在 1280×720 下按钮底边落在 887px（视口 720）——
+   「再来一局」这个主操作要滚到底才够得着，而且没有任何提示会告诉你要滚。 */
 .se-card {
   width: min(560px, calc(100vw - 32px));
-  max-height: calc(100vh - 40px);
-  overflow-y: auto;
+  max-height: calc(100vh - 32px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 3px;
-  padding: 20px 22px 18px;
+  padding: 20px 22px 14px;
   box-shadow: 0 24px 70px rgba(0, 0, 0, .6);
+}
+/* 中间这段（标题+概况+物资+明细+合计+生涯）是唯一可滚的部分 */
+.se-scroll {
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1 1 auto;
+  /* 细滚动条，不然在深色面板上几乎看不出能滚 */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(120, 200, 210, .35) transparent;
+}
+.se-scroll::-webkit-scrollbar { width: 6px; }
+.se-scroll::-webkit-scrollbar-thumb { background: rgba(120, 200, 210, .35); border-radius: 3px; }
+/* 物资再多也只有这一块自己滚，卡片高度始终不变 */
+.se-haul { max-height: 168px; overflow-y: auto; scrollbar-width: thin;
+  scrollbar-color: rgba(120, 200, 210, .3) transparent; }
+.se-haul::-webkit-scrollbar { width: 5px; }
+.se-haul::-webkit-scrollbar-thumb { background: rgba(120, 200, 210, .3); border-radius: 3px; }
+
+/* 渐隐提示：只在真的滚不完时才加 .more（JS 判定）。
+   之前 max-height 直接切在两行中间，最后一行显示一半，看着像渲染坏了，
+   而且没有任何迹象说明下面还有东西。
+   常驻渐隐不行 —— 东西不多时最后一行也会被抹掉，反而更像 bug。 */
+.se-haul.more, .se-scroll.more {
+  -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 26px), transparent 100%);
+  mask-image: linear-gradient(180deg, #000 calc(100% - 26px), transparent 100%);
 }
 
 .se-head { text-align: center; margin-bottom: 16px; }
@@ -307,9 +337,13 @@ body.in-raid #hud { display: block; }
 .se-lrow.down b { color: var(--red); }
 .se-lrow.dim, .se-lrow.dim b { color: #5d7a80; }
 
+/* 固定区（结局 / 概况 / 余额 / 按钮）在 flex 列里必须 flex:none，
+   否则物资一多它们会被压扁 —— 余额和按钮是结算时唯二要看的东西。 */
+.se-head, .se-stats, .se-total, .se-btns { flex: none; }
+
 .se-total {
   border-top: 1px solid var(--line);
-  margin-top: 4px; padding-top: 8px;
+  margin-top: 10px; padding-top: 8px;
 }
 .se-tr { display: flex; justify-content: space-between; align-items: baseline; padding: 3px 6px; }
 .se-tr span { font-size: 12px; color: var(--muted); }
@@ -320,14 +354,15 @@ body.in-raid #hud { display: block; }
 
 .se-career {
   display: flex; flex-wrap: wrap; gap: 4px 14px; justify-content: center;
-  margin: 14px 0 16px; padding: 8px 0;
-  border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  /* 现在生涯统计在可滚区里、紧贴固定余额区，去掉下边框免得和 se-total 的上边框叠成两条线 */
+  margin: 10px 0 0; padding: 8px 0 0;
+  border-top: 1px solid var(--line);
   font-size: 11px; color: var(--muted);
 }
 .se-career i { font-style: normal; margin-right: 5px; }
 .se-career b { color: var(--text); font-family: var(--mono); }
 
-.se-btns { display: flex; gap: 9px; }
+.se-btns { display: flex; gap: 9px; margin-top: 12px; }
 .se-btn {
   flex: 1; padding: 10px 0; cursor: pointer;
   font: inherit; font-size: 13px; letter-spacing: 2px;

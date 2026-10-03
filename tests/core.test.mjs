@@ -330,6 +330,31 @@ test('econ: 默认配装价 = 各件之和', () => {
   const expect = GUNS.reef.price + SUITS[2].price + HELMS[1].price + pack.price + 2 * 700;
   assert.equal(loadoutCost(lo), expect);
 });
+test('econ: loadoutCost 对全目录每个条目都能用 id 查到（下标不行）', () => {
+  // 回归测试：营地 UI 曾经用**数组下标**当选项 key，而 loadoutCost /
+  // rules.js 全都按 **catalog id** 查。两个键空间不一致会导致两种故障：
+  //   预览行渲染成「枪 · · 」，以及一旦点了别的潜水服 cost() 兜底成 0（装备白拿）。
+  // 这里遍历全目录，确保 id 键空间覆盖每一件，且下标键空间一定会失败 ——
+  // 后者提醒后来者别再混用。
+  for (const s of SUITS) {
+    const lo = { gun: 'reef', suit: s.id, helm: 'h0', pack: 'k2', meds: 0 };
+    const c = loadoutCost(lo);
+    assert.ok(c !== null, `SUITS 里的 ${s.id} 用 id 查不到`);
+    assert.equal(c, GUNS.reef.price + s.price + HELMS[0].price + PACKS.find((p) => p.id === 'k2').price);
+  }
+  for (const h of HELMS) {
+    const lo = { gun: 'reef', suit: 's0', helm: h.id, pack: 'k2', meds: 0 };
+    assert.ok(loadoutCost(lo) !== null, `HELMS 里的 ${h.id} 用 id 查不到`);
+  }
+  for (const p of PACKS) {
+    const lo = { gun: 'reef', suit: 's0', helm: 'h0', pack: p.id, meds: 0 };
+    assert.ok(loadoutCost(lo) !== null, `PACKS 里的 ${p.id} 用 id 查不到`);
+  }
+  // 下标当键一定查不到 —— 这是这次 bug 的根源，钉住它
+  assert.equal(loadoutCost({ gun: 'reef', suit: 2, helm: 1, pack: 'k2', meds: 0 }), null,
+    '下标键居然也能查到？那键空间又变了，UI 和 core 会再次对不上');
+});
+
 test('econ: 放弃行动退 30%，不再是陷阱（参考作退 0）', () => {
   const lo = { gun: 'reef', suit: 's2', helm: 'h1', pack: 'k2', meds: 2 };
   const prof = newProfile();

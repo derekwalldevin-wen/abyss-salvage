@@ -82,13 +82,19 @@ export class Camp {
       key: k, name: v.name, sub: `${v.cls} · 伤害 ${v.dmg} · ${v.mag} 发`, price: v.price,
     })));
 
-    this.picker(this.el.suits, 'suit', SUITS.map((v, i) => ({
-      key: i, name: v.name, sub: v.dur ? `耐久 ${v.dur} · 抗切割 ${Math.round(v.cut * 100)}%` : '无防护',
+    // 潜水服 / 头盔的 key 必须是 **catalog 的 id**，不是数组下标。
+    // 整个代码库都用 id：loadoutCost() 是 SUITS.find(x => x.id === lo.suit)，
+    // rules.js 也是 find(id)。这里原来传下标，于是两种后果：
+    //   1) 默认配装 suit:'s2' 匹配不到任何下标 → 预览行渲染成「枪 · · 」；
+    //   2) 一旦玩家点了别的潜水服，lo.suit 变成数字 → find() 返回 undefined
+    //      → loadoutCost 返回 null → cost() 兜底成 0 → **潜水服白拿**。
+    this.picker(this.el.suits, 'suit', SUITS.map((v) => ({
+      key: v.id, name: v.name, sub: v.dur ? `耐久 ${v.dur} · 抗切割 ${Math.round(v.cut * 100)}%` : '无防护',
       price: v.price,
     })));
 
-    this.picker(this.el.helms, 'helm', HELMS.map((v, i) => ({
-      key: i, name: v.name, sub: v.dur ? `耐久 ${v.dur} · 抗打击 ${Math.round(v.cut * 100)}%` : '无防护',
+    this.picker(this.el.helms, 'helm', HELMS.map((v) => ({
+      key: v.id, name: v.name, sub: v.dur ? `耐久 ${v.dur} · 抗打击 ${Math.round(v.cut * 100)}%` : '无防护',
       price: v.price,
     })));
 
@@ -110,7 +116,9 @@ export class Camp {
     // ---- 本局预览：把关键数字摊开，别让玩家下水后才发现没氧气瓶 ----
     const g = GUNS[this.lo.gun];
     const pack = PACKS.find((v) => v.id === this.lo.pack);
-    const suit = SUITS[this.lo.suit], helm = HELMS[this.lo.helm];
+    // 按 id 查，和 loadoutCost() 用同一套键空间
+    const suit = SUITS.find((s) => s.id === this.lo.suit);
+    const helm = HELMS.find((h) => h.id === this.lo.helm);
     const d = DIFFICULTY[this.lo.difficulty];
     this.el.info.innerHTML = [
       ['潜水时长', '12:00'],
@@ -167,9 +175,11 @@ export class Camp {
     }).join('');
     for (const b of host.querySelectorAll('[data-f]')) {
       b.addEventListener('click', () => {
-        const f = b.dataset.f;
-        const v = f === 'gun' || f === 'difficulty' || f === 'pack' ? b.dataset.v : +b.dataset.v;
-        this.lo[f] = v;
+        // 一律按字符串 id 存。所有 picker 的 key 都是 id
+        // （枪/难度是对象键，潜水服/头盔/背囊是 catalog id）。
+        // 原来这里对 suit/helm/pack 之外的字段做 +dataset.v，
+        // 等于把 id 变成数字，直接让 loadoutCost 的 find() 落空。
+        this.lo[b.dataset.f] = b.dataset.v;
         this.render();
       });
     }
