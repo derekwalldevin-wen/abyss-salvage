@@ -155,6 +155,11 @@ async function boot() {
   // 调试钩子（无副作用，只读）
   window.__abyss = {
     get raid() { return raid; }, world, scene, renderer, camera, input, CAM, assets,
+    // 暴露 three 本体，调试工具才能构造 Raycaster / Vector2 去问
+    // 「屏幕上这块绿色到底是什么」。之前探针只能统计颜色和遍历类型，
+    // 定位「几片薄荷绿碎条」查了好几轮都没命中（海草是 merge 过的
+    // BufferGeometry，按 geometry.type 筛不出来）。
+    THREE,
     deploy, profile, setQuality: (q) => { quality = q; applyQuality(renderer, comp, sun, q); },
     stats: () => ({
       drawCalls: renderer.info.render.calls, tris: renderer.info.render.triangles,

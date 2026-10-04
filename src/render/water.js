@@ -7,7 +7,11 @@
 import * as THREE from 'three';
 import { Rng } from '../core/rng.js';
 import { markPatched } from './seethrough.js';
-import { heightAt, HALF, SEA_LEVEL } from '../world/layout.js';
+import { heightAt, depthAt, HALF, SEA_LEVEL, BANDS } from '../world/layout.js';
+
+// 最深的一层（BOS 舱压载水舱，-44m）才算是「海床」。
+// 沉没的钻井平台上不该长海草 —— 草只该出现在这一层。
+const SEAFLOOR_MAX_DEPTH = BANDS[BANDS.length - 1].floorY;
 
 /**
  * 给地面材质注入焦散：两层滚动的 voronoi-ish 图案取 min，叠在亮度上。
@@ -142,19 +146,50 @@ export class Underwater {
     this.columns = [];
     for (const e of extracts) {
       const y = heightAt(e.x, e.z);
-      const g = new THREE.CylinderGeometry(1.5, 2.2, 16, 18, 1, true);
+      // 半径 1.5→1.1、底 2.2→1.6：原来贴着撤离点站时，16m 高的筒几乎占满右侧
+      // 四分之一屏，叠加下面几个环直接把画面糊掉（mess 区域 avg=78，全场最亮，
+      // 其余区域都在 45~55）。check-art --beam 实测光柱贡献 avg +9.5。
+      const g = new THREE.CylinderGeometry(1.1, 1.6, 14, 20, 1, true);
       const m = new THREE.ShaderMaterial({
         uniforms: { uTime: this.uniforms.uTime, uColor: { value: new THREE.Color(0x5cffc8) } },
         transparent: true, depthWrite: false, side: THREE.DoubleSide,
         blending: THREE.AdditiveBlending,
-        vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
-        fragmentShader: /* glsl */`
-          varying vec2 vUv; uniform float uTime; uniform vec3 uColor;
+        // 顶点着色器多传一个视空间法线，用来在片元里做边缘淡出。
+        vertexShader: /* glsl */`
+          varying vec2 vUv;
+          varying float vNormalViewZ;
           void main(){
-            float up = fract(vUv.y * 3.0 - uTime * 0.55);
-            float ring = smoothstep(0.0, 0.25, up) * smoothstep(1.0, 0.6, up);
-            float fade = (1.0 - vUv.y) * 0.55 + 0.12;
-            gl_FragColor = vec4(uColor, ring * fade * 0.5);
+            vUv = uv;
+            vec4 mv = modelViewMatrix * vec4(position, 1.0);
+            // 用 normalMatrix 把法线转到视空间。圆柱侧面法线全朝径向，
+            // 在视空间里 z 分量的绝对值天然就是「这一片正对摄像机多少」。
+            vNormalViewZ = normalize(normalMatrix * normal).z;
+            gl_Position = projectionMatrix * mv;
+          }`,
+        fragmentShader: /* glsl */`
+          varying vec2 vUv;
+          varying float vNormalViewZ;
+          uniform float uTime; uniform vec3 uColor;
+          void main(){
+            // 上升的光环，数量从 3 降到 2：环越密，叠加后越接近一片实心亮面，
+            // 读起来像「这里糊了一块」而不是「有气流上升」。
+            float up = fract(vUv.y * 2.0 - uTime * 0.42);
+            float ring = smoothstep(0.0, 0.3, up) * smoothstep(1.0, 0.55, up);
+            // **底部最暗**，这是关键。
+            //
+            // 摄像机是 56° 俯视，14m 高的筒在屏幕上是一块很大的梯形，
+            // 而贴着地面的那一段正好盖住玩家脚下的甲板 —— 也就是占屏最多的那块。
+            // 原来 fade = (1-vUv.y)*0.55 让**底部最亮**，等于把这块最大的区域
+            // 刷成最亮、最实，颜色最糊。
+            float fade = smoothstep(0.0, 0.4, vUv.y) * (1.0 - smoothstep(0.7, 1.0, vUv.y)) * 0.26 + 0.015;
+
+            // 侧壁淡出：光柱是个 DoubleSide 的筒，摄像机斜看进去会同时
+            // 看到朝自己和背自己的两片壁，叠加后中心最实、像个实心圆锥。
+            // 压掉掠射角的部分，只留「薄薄一层壳」的观感。
+            float rim = abs(vNormalViewZ);
+            fade *= mix(0.25, 1.0, rim);
+
+            gl_FragColor = vec4(uColor, ring * fade);
           }`,
       });
       const mesh = new THREE.Mesh(g, m);
@@ -163,13 +198,50 @@ export class Underwater {
       this.scene.add(mesh);
       this.columns.push(mesh);
 
-      // 底座圆环，标出撤离区范围
+      // 底座圆环，标出撤离区范围。
+      //
+      // 关键：**逐顶点贴合甲板高度**，不能整体平移。
+      //
+      // 原来是把 RingGeometry 一次性摆在 `heightAt(中心) + 0.06`。
+      // 但地图有四个高度层（-6/-20/-34/-44m），撤离点周围的地板往往是**斜的**
+      // —— 环的一侧会沉进地板下、另一侧翘到地板上方。沉下去的部分被遮挡，
+      // 于是整个环只剩几段弧形碎片露在外面。
+      //
+      // 画面表现就是 derrick / bunk 这些区域里散布的**薄荷绿平行四边形**：
+      // 位置随机、大小不一、颜色是同一个 0x5cffc8，看着像渲染出错。
+      // （排查时先后怀疑过透墙溶解、光柱、贴图，都不是 —— 最后靠
+      // check-art --ab 固定站位逐项对照才定位到是环被地板切开。）
+      const seg = 48;
+      const rg = new THREE.RingGeometry(3.6, 4.0, seg);
+      // RingGeometry 在 XY 平面上，rotate 到 XZ 后顶点的 z 分量是 ±sin，
+      // 直接用原始 x/y 当世界 x/z 采样高度即可。
+      rg.rotateX(-Math.PI / 2);
+      const pos = rg.attributes.position;
+      // **必须夹住高度差**。
+      //
+      // 逐顶点贴合地形听起来对，但地图有 14m 高的层间落差（-6 → -20 → -34）。
+      // 撤离点可能正好在落差边缘：环的直径 8m，只要横跨一道落差，
+      // 相邻顶点的高度差就是好几米，整张环会被拉成一片巨大的扭曲面 ——
+      // 实测 mess 区域直接出现一块占屏四分之一的薄荷绿梯形，比原来更糟。
+      //
+      // 夹到 ±0.6m：够贴着缓坡走，又保证环永远是「一个环」。
+      // 陡坡处环会有一小截插进地里，那本来就该被墙挡住。
+      const MAX_STEP = 0.6;
+      for (let i = 0; i < pos.count; i++) {
+        const wx = e.x + pos.getX(i), wz = e.z + pos.getZ(i);
+        const d = heightAt(wx, wz) - y;
+        pos.setY(i, Math.max(-MAX_STEP, Math.min(MAX_STEP, d)) + 0.06);
+      }
+      pos.needsUpdate = true;
+      rg.computeVertexNormals();
       const ring = new THREE.Mesh(
-        new THREE.RingGeometry(3.6, 4.0, 40),
-        new THREE.MeshBasicMaterial({ color: 0x5cffc8, transparent: true, opacity: 0.5, side: THREE.DoubleSide })
+        rg,
+        // opacity 0.5 → 0.3：实心 MeshBasicMaterial 平铺在甲板上，
+        // 0.5 的薄荷绿在 isometric 视角下是一大块实色，
+        // 读起来像地板破了个洞，而不是「这里可以撤离」。
+        new THREE.MeshBasicMaterial({ color: 0x5cffc8, transparent: true, opacity: 0.3, side: THREE.DoubleSide })
       );
-      ring.rotation.x = -Math.PI / 2;
-      ring.position.set(e.x, y + 0.06, e.z);
+      ring.position.set(e.x, y, e.z);
       this.scene.add(ring);
     }
   }
@@ -181,6 +253,21 @@ export class Underwater {
       const x = (this.rng.f() - 0.5) * this.half * 2;
       const z = (this.rng.f() - 0.5) * this.half * 2;
       if (Math.abs(x) > this.half - 6 || Math.abs(z) > this.half - 6) continue;
+
+      // **只长在海床上**。
+      //
+      // 原来 260 根草是纯随机撒在整张 182×182m 的图上，不管下面是
+      //  Drilling Deck（-6m）还是 Seafloor（-44m）。于是草会从甲板缝里、
+      // 从舱壁中间长出来 —— 沉没的钻井平台上不该有海草。
+      //
+      // 更糟的是它跟撤离底座环撞车：环的碎片和草叶都是薄片、都偏绿，
+      // 在 56° 俯视下混在一起，我一开始完全分不清屏幕上那几片绿色碎条
+      // 到底是「环被斜甲板切开」还是「穿模的海草」，白排查了好几轮。
+      //
+      // 判据用 depthAt 而不是 zone id：与 heightAt / layout 同源，
+      // 以后调整深度带阈值这里自动跟着走。
+      if (depthAt(x, z) < SEAFLOOR_MAX_DEPTH) continue;
+
       const y = heightAt(x, z);
       const h = 1.4 + this.rng.f() * 2.6;
       const g = new THREE.PlaneGeometry(0.5, h, 1, 3);
