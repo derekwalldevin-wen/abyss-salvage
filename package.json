@@ -16,12 +16,16 @@
     "check:settle": "npm run build && node tools/test-settle.mjs",
     "check:play": "npm run build && node tools/test-play.mjs",
     "check:ui": "node tools/check-ui.mjs",
+    "check:tex": "node tools/check-tex-dims.mjs",
+    "shrink:tex": "node tools/shrink-textures.mjs",
     "verify": "npm test && npm run validate:map -- --seeds 80 && npm run check:assets && npm run check:render && npm run check:dist && npm run check:settle && npm run check:play && node tools/check-ui.mjs",
     "sim": "node tools/sim.mjs",
     "balance": "node tools/balance.mjs",
     "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
+    "@gltf-transform/core": "^4.5.1",
+    "@gltf-transform/extensions": "^4.5.1",
     "three": "0.170.0"
   },
   "devDependencies": {
